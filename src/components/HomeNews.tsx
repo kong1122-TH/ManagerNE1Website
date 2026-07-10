@@ -47,9 +47,30 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
           setSelectedNews(found);
           setActiveImageIdx(0);
         }
+      } else if (!sessionStorage.getItem("hasAutoOpenedLatestNews")) {
+        setSelectedNews(newsList[0]);
+        setActiveImageIdx(0);
+        sessionStorage.setItem("hasAutoOpenedLatestNews", "true");
       }
     }
   }, [newsList]);
+
+  // Auto slideshow for selected news images
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (selectedNews) {
+      const imagesCount = selectedNews.images && selectedNews.images.length > 0 
+        ? selectedNews.images.length 
+        : (selectedNews.imageUrl ? 1 : 1);
+        
+      if (imagesCount > 1) {
+        interval = setInterval(() => {
+          setActiveImageIdx((prev) => (prev === imagesCount - 1 ? 0 : prev + 1));
+        }, 3500); // 3.5 seconds per slide
+      }
+    }
+    return () => clearInterval(interval);
+  }, [selectedNews]);
 
   const handleShare = (news: News) => {
     try {
@@ -751,6 +772,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                     <div 
                       key={item.id} 
                       onClick={() => {
+                        setShowAllNewsList(false);
                         handleSelectNews(item);
                       }}
                       className="flex gap-4 items-start group cursor-pointer bg-white hover:bg-purple-50 p-3 rounded-2xl transition-colors border border-slate-100 shadow-sm"

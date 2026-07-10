@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { motion } from "motion/react";
-import { Search, MapPin, Phone, Mail, UserCheck, Shield, Users, Building, Activity } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Search, MapPin, Phone, Mail, UserCheck, Shield, Users, Building, Activity, X } from "lucide-react";
 import { Member } from "../types";
 
 interface MemberDirectoryProps {
@@ -11,6 +11,7 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedOffice, setSelectedOffice] = useState<string>("ทั้งหมด");
   const [selectedRoleGroup, setSelectedRoleGroup] = useState<string>("ทั้งหมด");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Extract unique offices and roles for filtering
   const offices = ["ทั้งหมด", ...Array.from(new Set(members.map((m) => m.peaOffice))).filter(Boolean)];
@@ -205,7 +206,10 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
                       {member.imageUrl ? (
-                        <div className="w-14 h-14 rounded-full overflow-hidden border border-purple-100 shadow-sm bg-slate-50">
+                        <div 
+                          className="w-14 h-14 rounded-full overflow-hidden border border-purple-100 shadow-sm bg-slate-50 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setSelectedImage(member.imageUrl || null)}
+                        >
                           <img 
                             src={member.imageUrl} 
                             alt={member.name} 
@@ -258,6 +262,37 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
           })}
         </div>
       )}
+
+      {/* Image Modal */}
+      <AnimatePresence>
+        {selectedImage && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setSelectedImage(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center justify-center"
+            >
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute -top-12 right-0 sm:right-4 p-2 bg-white/10 hover:bg-white/25 text-white rounded-full transition-colors backdrop-blur-md"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <img
+                src={selectedImage}
+                alt="Profile Preview"
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+                referrerPolicy="no-referrer"
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

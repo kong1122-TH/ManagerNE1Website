@@ -235,7 +235,7 @@ export default function App() {
           <div className="flex items-center justify-between h-18">
             
             {/* Left: PEA Brand Logo style */}
-            <div className="flex items-center gap-3">
+            <div onClick={() => handleTabChange("home")} className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity">
               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md border border-purple-100 p-0.5 overflow-hidden transform hover:scale-105 transition-transform duration-300">
                 <img 
                   src={clubLogo} 
