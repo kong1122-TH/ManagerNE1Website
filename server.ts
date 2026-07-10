@@ -72,7 +72,9 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 // Set up Fallback Database Path
-const DB_FALLBACK_FILE = path.join(process.cwd(), "db-fallback.json");
+const DB_FALLBACK_FILE = process.env.VERCEL
+  ? path.join("/tmp", "db-fallback.json")
+  : path.join(process.cwd(), "db-fallback.json");
 
 // Default initial data for PEA District 1 Manager's Club (กฟฉ.1)
 const DEFAULT_DATABASE = {
@@ -234,7 +236,12 @@ const DEFAULT_DATABASE = {
 // Initialize Local Fallback JSON Database if not exists
 if (!fs.existsSync(DB_FALLBACK_FILE)) {
   try {
-    fs.writeFileSync(DB_FALLBACK_FILE, JSON.stringify(DEFAULT_DATABASE, null, 2), "utf-8");
+    const templatePath = path.join(process.cwd(), "db-fallback.json");
+    if (fs.existsSync(templatePath)) {
+      fs.copyFileSync(templatePath, DB_FALLBACK_FILE);
+    } else {
+      fs.writeFileSync(DB_FALLBACK_FILE, JSON.stringify(DEFAULT_DATABASE, null, 2), "utf-8");
+    }
     console.log("Local fallback JSON database seeded successfully.");
   } catch (err) {
     console.error("Error seeding local fallback JSON database:", err);
@@ -975,7 +982,7 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
         console.warn("Failed to set permission for Drive file (this is fine if folder is already public):", permError);
       }
 
-      const directUrl = `https://drive.google.com/uc?export=view&id=${driveFile.id}`;
+      const directUrl = `https://lh3.googleusercontent.com/d/${driveFile.id}`;
 
       return res.json({
         success: true,
