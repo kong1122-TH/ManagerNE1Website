@@ -21,6 +21,8 @@ import {
   Image
 } from "lucide-react";
 import { News, Member, CalendarEvent, AppConfig } from "../types";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../firebase";
 
 // @ts-ignore
 import clubLogo from "../assets/images/regenerated_image_1783494444543.jpg";
@@ -177,32 +179,21 @@ export default function AdminPanel({
     setUploadingImage(true);
     setUploadError("");
 
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+      const fileRef = ref(storage, `news/${Date.now()}-${file.name}`);
+      await uploadBytes(fileRef, file);
+      const imageUrl = await getDownloadURL(fileRef);
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setNewsImages(prev => {
-          const updated = [...prev, data.imageUrl];
-          if (!newsImageUrl && updated.length > 0) {
-            setNewsImageUrl(updated[0]);
-          }
-          return updated;
-        });
-        if (data.warning) {
-          console.warn(data.warning);
+      setNewsImages(prev => {
+        const updated = [...prev, imageUrl];
+        if (!newsImageUrl && updated.length > 0) {
+          setNewsImageUrl(updated[0]);
         }
-      } else {
-        setUploadError(data.error || "อัปโหลดรูปภาพล้มเหลว");
-      }
-    } catch (err) {
-      setUploadError("ไม่สามารถติดต่อเซิร์ฟเวอร์เพื่ออัปโหลดได้");
+        return updated;
+      });
+    } catch (err: any) {
+      console.error("Firebase Storage Upload Error:", err);
+      setUploadError(err.message || "อัปโหลดรูปภาพล้มเหลว");
     } finally {
       setUploadingImage(false);
     }
@@ -304,26 +295,14 @@ export default function AdminPanel({
     setUploadingMemImage(true);
     setMemUploadError("");
 
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMemImageUrl(data.imageUrl);
-        if (data.warning) {
-          console.warn(data.warning);
-        }
-      } else {
-        setMemUploadError(data.error || "อัปโหลดรูปภาพล้มเหลว");
-      }
-    } catch (err) {
-      setMemUploadError("ไม่สามารถติดต่อเซิร์ฟเวอร์เพื่ออัปโหลดได้");
+      const fileRef = ref(storage, `members/${Date.now()}-${file.name}`);
+      await uploadBytes(fileRef, file);
+      const imageUrl = await getDownloadURL(fileRef);
+      setMemImageUrl(imageUrl);
+    } catch (err: any) {
+      console.error("Firebase Storage Upload Error:", err);
+      setMemUploadError(err.message || "อัปโหลดรูปภาพล้มเหลว");
     } finally {
       setUploadingMemImage(false);
     }

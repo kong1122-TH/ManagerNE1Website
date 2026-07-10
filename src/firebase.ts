@@ -3,11 +3,15 @@ import { getAuth } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
 import firebaseConfig from "../firebase-applet-config.json";
 
+import { getStorage } from "firebase/storage";
+
 const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 });
 export const auth = getAuth();
+export const storage = getStorage(app);
+
 
 // OperationType Enum as required by Firebase Integration Guideline
 export enum OperationType {
