@@ -935,7 +935,55 @@ app.get("/api/drive-images", async (req, res) => {
 } );
 
 // Helper to upload to Catbox.moe using raw https multipart post
-function uploadToCatbox(filePath: string): Promise<string> {
+// Fallback 1: ImgBB
+function uploadToImgBB(apiKey: string, filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
+    const filename = path.basename(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const base64Image = fileBuffer.toString("base64");
+    
+    const part1 = `--${boundary}\r\n` +
+                  `Content-Disposition: form-data; name="image"\r\n\r\n` +
+                  `${base64Image}\r\n` +
+                  `--${boundary}--\r\n`;
+
+    const options = {
+      method: 'POST',
+      hostname: 'api.imgbb.com',
+      path: `/1/upload?key=${apiKey}`,
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': Buffer.byteLength(part1),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed.success && parsed.data && parsed.data.url) {
+            resolve(parsed.data.url);
+          } else {
+            reject(new Error(`ImgBB returned error: ${body}`));
+          }
+        } catch (err: any) {
+          reject(new Error(`ImgBB parse error: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.write(part1);
+    req.end();
+  });
+}
+
+// Fallback 2: Catbox.moe
+function uploadToCatbox(filePath: string, mimetype: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
     const filename = path.basename(filePath);
@@ -946,7 +994,7 @@ function uploadToCatbox(filePath: string): Promise<string> {
                   `fileupload\r\n` +
                   `--${boundary}\r\n` +
                   `Content-Disposition: form-data; name="fileToUpload"; filename="${filename}"\r\n` +
-                  `Content-Type: image/jpeg\r\n\r\n`;
+                  `Content-Type: ${mimetype}\r\n\r\n`;
                   
     const part2 = `\r\n--${boundary}--\r\n`;
     
@@ -975,7 +1023,7 @@ function uploadToCatbox(filePath: string): Promise<string> {
         if (url.startsWith("https://")) {
           resolve(url);
         } else {
-          reject(new Error(`Catbox upload failed: ${body}`));
+          reject(new Error(`Catbox returned error: ${url}`));
         }
       });
     });
@@ -986,7 +1034,105 @@ function uploadToCatbox(filePath: string): Promise<string> {
   });
 }
 
-// IMAGE UPLOAD ENDPOINT (Local storage + Google Drive option + Catbox fallback)
+// Fallback 3: tmpfiles.org
+function uploadToTmpfiles(filePath: string, mimetype: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
+    const filename = path.basename(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    
+    const part1 = `--${boundary}\r\n` +
+                  `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+                  `Content-Type: ${mimetype}\r\n\r\n`;
+                  
+    const part2 = `\r\n--${boundary}--\r\n`;
+    
+    const bodyBuffer = Buffer.concat([
+      Buffer.from(part1, "utf-8"),
+      fileBuffer,
+      Buffer.from(part2, "utf-8")
+    ]);
+
+    const options = {
+      method: 'POST',
+      hostname: 'tmpfiles.org',
+      path: '/api/v1/upload',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': bodyBuffer.length,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        try {
+          const responseJson = JSON.parse(body);
+          if (responseJson.status === "success" && responseJson.data && responseJson.data.url) {
+            const rawUrl = responseJson.data.url;
+            const directUrl = rawUrl.replace("https://tmpfiles.org/", "https://tmpfiles.org/dl/");
+            resolve(directUrl);
+          } else {
+            reject(new Error(`tmpfiles.org returned error: ${body}`));
+          }
+        } catch (err: any) {
+          reject(new Error(`tmpfiles.org parse error: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.write(bodyBuffer);
+    req.end();
+  });
+}
+
+// Master Fallback Router
+async function uploadToFallback(filePath: string, mimetype: string): Promise<string> {
+  const errors: string[] = [];
+
+  // Choice 1: ImgBB if key exists in env variables
+  const imgbbKey = process.env.IMGBB_API_KEY;
+  if (imgbbKey) {
+    try {
+      console.log("Attempting fallback upload to ImgBB...");
+      const url = await uploadToImgBB(imgbbKey, filePath);
+      console.log("ImgBB fallback upload succeeded:", url);
+      return url;
+    } catch (err: any) {
+      console.warn("ImgBB fallback upload failed:", err.message || err);
+      errors.push(`ImgBB (${err.message || err})`);
+    }
+  }
+
+  // Choice 2: Catbox.moe
+  try {
+    console.log("Attempting fallback upload to Catbox.moe...");
+    const url = await uploadToCatbox(filePath, mimetype);
+    console.log("Catbox.moe fallback upload succeeded:", url);
+    return url;
+  } catch (err: any) {
+    console.warn("Catbox.moe fallback upload failed:", err.message || err);
+    errors.push(`Catbox (${err.message || err})`);
+  }
+
+  // Choice 3: tmpfiles.org
+  try {
+    console.log("Attempting fallback upload to tmpfiles.org...");
+    const url = await uploadToTmpfiles(filePath, mimetype);
+    console.log("tmpfiles.org fallback upload succeeded:", url);
+    return url;
+  } catch (err: any) {
+    console.warn("tmpfiles.org fallback upload failed:", err.message || err);
+    errors.push(`tmpfiles.org (${err.message || err})`);
+  }
+
+  throw new Error(errors.join(" | "));
+}
+
+// IMAGE UPLOAD ENDPOINT (Local storage + Google Drive option + Multi-fallback)
 app.post("/api/upload", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "กรุณาอัปโหลดไฟล์รูปภาพ" });
@@ -1045,43 +1191,42 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
       });
 
     } catch (driveError: any) {
-      console.error("Error uploading file to Google Drive, falling back to Catbox:", driveError);
+      console.error("Error uploading file to Google Drive, falling back to external hosts:", driveError);
       try {
-        const catboxUrl = await uploadToCatbox(fullLocalPath);
-        console.log("Uploaded successfully to Catbox fallback:", catboxUrl);
+        const fallbackUrl = await uploadToFallback(fullLocalPath, req.file.mimetype);
         return res.json({
           success: true,
-          imageUrl: catboxUrl,
+          imageUrl: fallbackUrl,
           localUrl: localPath,
-          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive ได้: " + (driveError.message || driveError) + " ใช้ที่เก็บไฟล์สำรองเสร็จสิ้น"
+          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive ได้: " + (driveError.message || driveError) + ". ใช้ระบบเก็บไฟล์สำรองสำเร็จ"
         });
-      } catch (catboxErr: any) {
-        console.error("Catbox fallback upload failed:", catboxErr);
+      } catch (fallbackErr: any) {
+        console.error("All fallback uploaders failed:", fallbackErr);
         return res.json({
           success: true,
           imageUrl: localPath,
           localUrl: localPath,
-          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive และที่เก็บไฟล์สำรองได้ ใช้ที่เก็บเซิร์ฟเวอร์แบบจำกัดเวลา"
+          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive และแหล่งจัดเก็บสำรองได้: " + (fallbackErr.message || fallbackErr) + ". กำลังใช้งานหน่วยความจำเซิร์ฟเวอร์ชั่วคราว"
         });
       }
     }
   }
 
-  // Fallback if Google Drive is not configured (try Catbox first, then local)
+  // Fallback if Google Drive is not configured
   try {
-    const catboxUrl = await uploadToCatbox(fullLocalPath);
-    console.log("Google Drive not configured. Uploaded to Catbox fallback:", catboxUrl);
+    const fallbackUrl = await uploadToFallback(fullLocalPath, req.file.mimetype);
     res.json({
       success: true,
-      imageUrl: catboxUrl,
+      imageUrl: fallbackUrl,
       localUrl: localPath,
     });
-  } catch (catboxErr: any) {
-    console.error("Catbox upload failed:", catboxErr);
+  } catch (fallbackErr: any) {
+    console.error("Google Drive not configured and fallback failed:", fallbackErr);
     res.json({
       success: true,
       imageUrl: localPath,
       localUrl: localPath,
+      warning: "ไม่สามารถอัปโหลดไปยังแหล่งจัดเก็บภายนอกได้. กำลังใช้งานหน่วยความจำเซิร์ฟเวอร์ชั่วคราว"
     });
   }
 });
