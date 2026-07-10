@@ -233,9 +233,14 @@ const DEFAULT_DATABASE = {
 
 // Initialize Local Fallback JSON Database if not exists
 if (!fs.existsSync(DB_FALLBACK_FILE)) {
-  fs.writeFileSync(DB_FALLBACK_FILE, JSON.stringify(DEFAULT_DATABASE, null, 2), "utf-8");
-  console.log("Local fallback JSON database seeded successfully.");
+  try {
+    fs.writeFileSync(DB_FALLBACK_FILE, JSON.stringify(DEFAULT_DATABASE, null, 2), "utf-8");
+    console.log("Local fallback JSON database seeded successfully.");
+  } catch (err) {
+    console.error("Error seeding local fallback JSON database:", err);
+  }
 }
+
 
 // Read database from local fallback
 function readLocalDB(): typeof DEFAULT_DATABASE {
