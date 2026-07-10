@@ -278,28 +278,6 @@ export default function App() {
 
             {/* Right: Cloud Integration Status & Refresh */}
             <div className="flex items-center gap-3">
-              {/* Premium Multi-Cloud Status Badge Dashboard */}
-              <div className="hidden md:flex items-center gap-3 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-1.5 text-[10px] font-medium text-slate-500">
-                <div className="flex items-center gap-1.5" title="Google Sheets - Central Database & Caching">
-                  <Database className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Sheets:</span>
-                  <span className="text-emerald-700 font-bold">Connected</span>
-                </div>
-                <span className="text-slate-200">|</span>
-                <div className="flex items-center gap-1.5" title="Google Drive - Cloud Asset Library">
-                  <svg className="w-3.5 h-3.5 text-blue-600 fill-current" viewBox="0 0 24 24">
-                    <path d="M19.43 12.98l-6.73-11.53c-.35-.61-1-.98-1.7-.98h-.02c-.7 0-1.35.37-1.7.98l-6.73 11.53c-.35.61-.35 1.35 0 1.96l3.37 5.77c.35.61 1 .98 1.7.98h13.43c.7 0 1.35-.37 1.7-.98l3.37-5.77c.35-.61.35-1.35 0-1.96zM15.02 12h-6.04l-3.02-5.18h6.04l3.02 5.18z" />
-                  </svg>
-                  <span>Drive:</span>
-                  <span className="text-blue-700 font-bold">Connected</span>
-                </div>
-                <span className="text-slate-200">|</span>
-                <div className="flex items-center gap-1.5" title="Firebase Firestore - Secure Real-time Messaging">
-                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-current" />
-                  <span>Firebase:</span>
-                  <span className="text-amber-700 font-bold">{fbUser ? "Real-time" : "Active"}</span>
-                </div>
-              </div>
 
               <button
                 onClick={fetchAllData}
