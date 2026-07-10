@@ -933,7 +933,33 @@ app.get("/api/drive-images", async (req, res) => {
   }
 } );
 
-// IMAGE UPLOAD ENDPOINT (Local storage + Google Drive option)
+// Helper to upload to Catbox.moe
+async function uploadToCatbox(filePath: string): Promise<string> {
+  const fileName = path.basename(filePath);
+  const fileBuffer = fs.readFileSync(filePath);
+  const blob = new Blob([fileBuffer]);
+  
+  const formData = new globalThis.FormData();
+  formData.append("reqtype", "fileupload");
+  formData.append("fileToUpload", blob, fileName);
+
+  const response = await fetch("https://catbox.moe/user/api.php", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Catbox upload failed with status ${response.status}`);
+  }
+
+  const resultText = await response.text();
+  if (resultText.startsWith("https://")) {
+    return resultText.trim();
+  }
+  throw new Error(`Catbox upload returned invalid response: ${resultText}`);
+}
+
+// IMAGE UPLOAD ENDPOINT (Local storage + Google Drive option + Catbox fallback)
 app.post("/api/upload", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "กรุณาอัปโหลดไฟล์รูปภาพ" });
@@ -992,22 +1018,45 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
       });
 
     } catch (driveError: any) {
-      console.error("Error uploading file to Google Drive, falling back to local storage:", driveError);
-      return res.json({
-        success: true,
-        imageUrl: localPath,
-        localUrl: localPath,
-        warning: "ไม่สามารถอัปโหลดไปยัง Google Drive ได้: " + (driveError.message || driveError) + " กำลังใช้งานหน่วยความจำเซิร์ฟเวอร์สำรอง"
-      });
+      console.error("Error uploading file to Google Drive, falling back to Catbox:", driveError);
+      try {
+        const catboxUrl = await uploadToCatbox(fullLocalPath);
+        console.log("Uploaded successfully to Catbox fallback:", catboxUrl);
+        return res.json({
+          success: true,
+          imageUrl: catboxUrl,
+          localUrl: localPath,
+          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive ได้: " + (driveError.message || driveError) + " ใช้ที่เก็บไฟล์สำรองเสร็จสิ้น"
+        });
+      } catch (catboxErr: any) {
+        console.error("Catbox fallback upload failed:", catboxErr);
+        return res.json({
+          success: true,
+          imageUrl: localPath,
+          localUrl: localPath,
+          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive และที่เก็บไฟล์สำรองได้ ใช้ที่เก็บเซิร์ฟเวอร์แบบจำกัดเวลา"
+        });
+      }
     }
   }
 
-  // Fallback if Google Drive is not configured
-  res.json({
-    success: true,
-    imageUrl: localPath,
-    localUrl: localPath,
-  });
+  // Fallback if Google Drive is not configured (try Catbox first, then local)
+  try {
+    const catboxUrl = await uploadToCatbox(fullLocalPath);
+    console.log("Google Drive not configured. Uploaded to Catbox fallback:", catboxUrl);
+    res.json({
+      success: true,
+      imageUrl: catboxUrl,
+      localUrl: localPath,
+    });
+  } catch (catboxErr: any) {
+    console.error("Catbox upload failed:", catboxErr);
+    res.json({
+      success: true,
+      imageUrl: localPath,
+      localUrl: localPath,
+    });
+  }
 });
 
 // AI ASSISTANT: HELP DRAFT NEWS WITH GEMINI

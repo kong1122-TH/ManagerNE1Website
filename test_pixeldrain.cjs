@@ -2,7 +2,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const imagePath = "C:\\Users\\499391\\.gemini\\antigravity-ide\\brain\\027583c9-31d7-4298-912c-67a0e1a8b9c7\\media__1783674107951.jpg";
+const imagePath = "src/assets/images/regenerated_image_1783494444543.jpg";
 
 function uploadToPixeldrain(filePath) {
   return new Promise((resolve, reject) => {
