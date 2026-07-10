@@ -61,7 +61,7 @@ export default function AdminPanel({
   const [newsContent, setNewsContent] = useState("");
   const [newsDate, setNewsDate] = useState("");
   const [newsCategory, setNewsCategory] = useState("กิจกรรมชมรม");
-  const [newsAuthor, setNewsAuthor] = useState("ประชาสัมพันธ์ กฟฉ.1");
+  const [newsAuthor, setNewsAuthor] = useState("ฝ่ายประชาสัมพันธ์ชมรมผู้จัดการ กฟฉ.1");
   const [newsImageUrl, setNewsImageUrl] = useState("");
   const [newsImages, setNewsImages] = useState<string[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -160,7 +160,7 @@ export default function AdminPanel({
     setNewsContent("");
     setNewsDate(new Date().toISOString().split("T")[0]);
     setNewsCategory("กิจกรรมชมรม");
-    setNewsAuthor("ประชาสัมพันธ์ กฟฉ.1");
+    setNewsAuthor("ฝ่ายประชาสัมพันธ์ชมรมผู้จัดการ กฟฉ.1");
     setNewsImageUrl("");
     setNewsImages([]);
     setUploadError("");
@@ -572,7 +572,7 @@ export default function AdminPanel({
     setNewsContent(aiDraftedText);
     setNewsDate(new Date().toISOString().split("T")[0]);
     setNewsCategory("กิจกรรมชมรม");
-    setNewsAuthor("ประชาสัมพันธ์ กฟฉ.1");
+    setNewsAuthor("ฝ่ายประชาสัมพันธ์ชมรมผู้จัดการ กฟฉ.1");
     setNewsImageUrl("https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800");
     
     setSelectedNewsId(null);

@@ -34,6 +34,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
   const [activeImageIdx, setActiveImageIdx] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [copiedNewsId, setCopiedNewsId] = useState<string | null>(null);
+  const [showAllNewsList, setShowAllNewsList] = useState<boolean>(false);
 
   // Parse newsId from URL and open it if present
   React.useEffect(() => {
@@ -101,7 +102,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
     content: "ศูนย์กลางการสื่อสาร พัฒนาความร่วมมือ และยกระดับการบริหารงานการบริการจำหน่ายกระแสไฟฟ้าอย่างมีประสิทธิภาพและเสถียรภาพ เพื่อสร้างความพึงพอใจสูงสุดให้กับประชาชนในพื้นที่ 7 จังหวัดอีสานตอนบน",
     date: new Date().toISOString(),
     category: "กิจกรรมชมรม",
-    author: "ประชาสัมพันธ์ กฟฉ.1",
+    author: "ฝ่ายประชาสัมพันธ์ชมรมผู้จัดการ กฟฉ.1",
     imageUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1200"
   };
 
@@ -310,7 +311,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                 <Building className="w-4 h-4 text-pea-purple" /> ข่าวสารและกิจกรรมถัดไป
               </h3>
               <button 
-                onClick={() => onTabChange("home")}
+                onClick={() => setShowAllNewsList(true)}
                 className="text-pea-purple text-xs font-bold hover:underline"
               >
                 ทั้งหมด
@@ -454,7 +455,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                   >
                     <div className={`w-1 h-8 rounded-full ${idx === 0 ? "bg-purple-600" : "bg-orange-500"}`}></div>
                     <div className="flex-grow min-w-0">
-                      <p className="text-xs font-bold text-slate-800 leading-none truncate group-hover:text-pea-purple transition-colors">
+                      <p className="text-xs font-bold text-slate-800 leading-normal truncate group-hover:text-pea-purple transition-colors">
                         {event.title}
                       </p>
                       <p className="text-[10px] text-slate-400 font-light mt-1 flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
@@ -709,6 +710,80 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                 >
                   ปิดหน้าต่าง
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Detail Modal Dialog for All News List */}
+      <AnimatePresence>
+        {showAllNewsList && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-3xl bg-slate-50 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="bg-white border-b border-slate-100 p-5 flex items-center justify-between z-10 sticky top-0">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Building className="w-5 h-5 text-pea-purple" />
+                  ข่าวสารและกิจกรรมทั้งหมด
+                </h2>
+                <button
+                  onClick={() => setShowAllNewsList(false)}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-5">
+                <div className="space-y-4">
+                  {newsList.map((item) => (
+                    <div 
+                      key={item.id} 
+                      onClick={() => {
+                        handleSelectNews(item);
+                      }}
+                      className="flex gap-4 items-start group cursor-pointer bg-white hover:bg-purple-50 p-3 rounded-2xl transition-colors border border-slate-100 shadow-sm"
+                    >
+                      <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-100">
+                        <img 
+                          src={item.imageUrl || "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=150"} 
+                          alt={item.title} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 py-1">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-xs font-bold text-pea-purple">
+                            {formatThaiDate(item.date)}
+                          </p>
+                          <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-medium">
+                            {item.category}
+                          </span>
+                        </div>
+                        <h4 className="text-sm sm:text-base font-bold text-slate-800 leading-snug line-clamp-2 group-hover:text-pea-darkpurple transition-colors mb-1.5">
+                          {item.title}
+                        </h4>
+                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                          {item.content}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {newsList.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 space-y-2">
+                      <Building className="w-10 h-10 opacity-25" />
+                      <p className="text-sm font-light">ยังไม่มีข่าวประชาสัมพันธ์เพิ่มเติม</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>
