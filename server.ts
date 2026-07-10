@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { google } from "googleapis";
 import dotenv from "dotenv";
-import { createServer as createViteServer } from "vite";
+
 import { GoogleGenAI } from "@google/genai";
 import multer from "multer";
 
@@ -1041,6 +1041,7 @@ async function startServer() {
 
   if (process.env.NODE_ENV !== "production") {
     // Development mode with Vite Middleware
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
