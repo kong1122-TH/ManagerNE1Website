@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { google } from "googleapis";
 import dotenv from "dotenv";
+import https from "https";
 
 import { GoogleGenAI } from "@google/genai";
 import multer from "multer";
@@ -933,30 +934,52 @@ app.get("/api/drive-images", async (req, res) => {
   }
 } );
 
-// Helper to upload to Catbox.moe
-async function uploadToCatbox(filePath: string): Promise<string> {
-  const fileName = path.basename(filePath);
-  const fileBuffer = fs.readFileSync(filePath);
-  const blob = new Blob([fileBuffer]);
-  
-  const formData = new globalThis.FormData();
-  formData.append("reqtype", "fileupload");
-  formData.append("fileToUpload", blob, fileName);
+// Helper to upload to Catbox.moe using raw https multipart post
+function uploadToCatbox(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
+    const filename = path.basename(filePath);
+    
+    const options = {
+      method: 'POST',
+      hostname: 'catbox.moe',
+      path: '/user/api.php',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      }
+    };
 
-  const response = await fetch("https://catbox.moe/user/api.php", {
-    method: "POST",
-    body: formData,
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        const url = body.trim();
+        if (url.startsWith("https://")) {
+          resolve(url);
+        } else {
+          reject(new Error(`Catbox upload failed: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+
+    // Write parameters
+    req.write(`--${boundary}\r\n`);
+    req.write(`Content-Disposition: form-data; name="reqtype"\r\n\r\n`);
+    req.write(`fileupload\r\n`);
+    
+    req.write(`--${boundary}\r\n`);
+    req.write(`Content-Disposition: form-data; name="fileToUpload"; filename="${filename}"\r\n`);
+    req.write('Content-Type: image/jpeg\r\n\r\n');
+    
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.on('data', (chunk) => req.write(chunk));
+    fileStream.on('end', () => {
+      req.write(`\r\n--${boundary}--\r\n`);
+      req.end();
+    });
   });
-
-  if (!response.ok) {
-    throw new Error(`Catbox upload failed with status ${response.status}`);
-  }
-
-  const resultText = await response.text();
-  if (resultText.startsWith("https://")) {
-    return resultText.trim();
-  }
-  throw new Error(`Catbox upload returned invalid response: ${resultText}`);
 }
 
 // IMAGE UPLOAD ENDPOINT (Local storage + Google Drive option + Catbox fallback)
