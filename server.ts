@@ -939,13 +939,31 @@ function uploadToCatbox(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
     const filename = path.basename(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
     
+    const part1 = `--${boundary}\r\n` +
+                  `Content-Disposition: form-data; name="reqtype"\r\n\r\n` +
+                  `fileupload\r\n` +
+                  `--${boundary}\r\n` +
+                  `Content-Disposition: form-data; name="fileToUpload"; filename="${filename}"\r\n` +
+                  `Content-Type: image/jpeg\r\n\r\n`;
+                  
+    const part2 = `\r\n--${boundary}--\r\n`;
+    
+    const bodyBuffer = Buffer.concat([
+      Buffer.from(part1, "utf-8"),
+      fileBuffer,
+      Buffer.from(part2, "utf-8")
+    ]);
+
     const options = {
       method: 'POST',
       hostname: 'catbox.moe',
       path: '/user/api.php',
       headers: {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': bodyBuffer.length,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
       }
     };
 
@@ -963,22 +981,8 @@ function uploadToCatbox(filePath: string): Promise<string> {
     });
 
     req.on('error', (err) => reject(err));
-
-    // Write parameters
-    req.write(`--${boundary}\r\n`);
-    req.write(`Content-Disposition: form-data; name="reqtype"\r\n\r\n`);
-    req.write(`fileupload\r\n`);
-    
-    req.write(`--${boundary}\r\n`);
-    req.write(`Content-Disposition: form-data; name="fileToUpload"; filename="${filename}"\r\n`);
-    req.write('Content-Type: image/jpeg\r\n\r\n');
-    
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.on('data', (chunk) => req.write(chunk));
-    fileStream.on('end', () => {
-      req.write(`\r\n--${boundary}--\r\n`);
-      req.end();
-    });
+    req.write(bodyBuffer);
+    req.end();
   });
 }
 
