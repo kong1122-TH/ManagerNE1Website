@@ -21,8 +21,6 @@ import {
   Image
 } from "lucide-react";
 import { News, Member, CalendarEvent, AppConfig } from "../types";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../firebase";
 
 // @ts-ignore
 import clubLogo from "../assets/images/regenerated_image_1783494444543.jpg";
@@ -180,9 +178,24 @@ export default function AdminPanel({
     setUploadError("");
 
     try {
-      const fileRef = ref(storage, `news/${Date.now()}-${file.name}`);
-      await uploadBytes(fileRef, file);
-      const imageUrl = await getDownloadURL(fileRef);
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`อัปโหลดล้มเหลว: รหัสสถานะ ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.imageUrl) {
+        throw new Error(data.error || "อัปโหลดรูปภาพล้มเหลว");
+      }
+
+      const imageUrl = data.imageUrl;
 
       setNewsImages(prev => {
         const updated = [...prev, imageUrl];
@@ -192,7 +205,7 @@ export default function AdminPanel({
         return updated;
       });
     } catch (err: any) {
-      console.error("Firebase Storage Upload Error:", err);
+      console.error("Upload Error:", err);
       setUploadError(err.message || "อัปโหลดรูปภาพล้มเหลว");
     } finally {
       setUploadingImage(false);
@@ -296,12 +309,27 @@ export default function AdminPanel({
     setMemUploadError("");
 
     try {
-      const fileRef = ref(storage, `members/${Date.now()}-${file.name}`);
-      await uploadBytes(fileRef, file);
-      const imageUrl = await getDownloadURL(fileRef);
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`อัปโหลดล้มเหลว: รหัสสถานะ ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.imageUrl) {
+        throw new Error(data.error || "อัปโหลดรูปภาพล้มเหลว");
+      }
+
+      const imageUrl = data.imageUrl;
       setMemImageUrl(imageUrl);
     } catch (err: any) {
-      console.error("Firebase Storage Upload Error:", err);
+      console.error("Upload Error:", err);
       setMemUploadError(err.message || "อัปโหลดรูปภาพล้มเหลว");
     } finally {
       setUploadingMemImage(false);
