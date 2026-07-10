@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Kanit", "Sarabun", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-pea-purple: #7B2CBF;
+  --color-pea-darkpurple: #5E17EB;
+  --color-pea-lightpurple: #9D4EDD;
+  --color-pea-gold: #FFC300;
+  --color-pea-amber: #FFB703;
+}
+
+/* Custom global styles for scrollbar and clean animations */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(241, 241, 241, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: #c7d2fe;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a5b4fc;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+/* Custom glow animations for PEA aesthetics */
+.pea-glow {
+  box-shadow: 0 0 15px rgba(123, 44, 191, 0.2);
+}
+
+.pea-glow-gold {
+  box-shadow: 0 0 15px rgba(255, 195, 0, 0.3);
+}
