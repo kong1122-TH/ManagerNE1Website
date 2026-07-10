@@ -505,8 +505,12 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                     onClick={() => onTabChange("members")}
                     className="bg-white p-2.5 rounded-xl border border-purple-100 flex items-center gap-2.5 hover:border-pea-purple cursor-pointer transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-purple-100 text-pea-purple text-xs font-bold flex items-center justify-center shrink-0">
-                      {member.name.substring(0, 2)}
+                    <div className="w-8 h-8 rounded-full bg-purple-100 text-pea-purple text-xs font-bold flex items-center justify-center shrink-0 overflow-hidden">
+                      {member.imageUrl ? (
+                        <img src={member.imageUrl} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        member.name.substring(0, 2)
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{member.name}</p>
