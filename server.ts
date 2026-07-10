@@ -7,7 +7,9 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import multer from "multer";
 
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 dotenv.config();
+
 
 const app = express();
 const PORT = 3000;
@@ -54,6 +56,8 @@ if (process.env.GEMINI_API_KEY) {
   try {
     aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     console.log("Gemini AI Client initialized successfully.");
+
+
   } catch (err) {
     console.error("Failed to initialize Gemini Client:", err);
   }
@@ -1006,9 +1010,13 @@ app.post("/api/ai/draft-news", async (req, res) => {
 กรุณาร่างข้อความข่าวให้ครบถ้วน ความยาวกำลังดี (ประมาณ 150-300 คำ) มีส่วนหัวข่าว เนื้อหาใจความ และระบุท้ายข่าวว่ามาจากฝ่ายประชาสัมพันธ์ชมรมผู้จัดการ กฟฉ.1`;
 
     const response = await aiClient.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: prompt,
     });
+
+
+
+
 
     const draftText = response.text;
     res.json({ draft: draftText });
