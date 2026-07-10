@@ -61,7 +61,10 @@ export default function App() {
         fetch("/api/config"),
       ]);
 
-      if (newsRes.ok) setNewsList(await newsRes.json());
+      if (newsRes.ok) {
+        const newsData = await newsRes.json();
+        setNewsList(newsData.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      }
       if (membersRes.ok) setMembers(await membersRes.json());
       if (eventsRes.ok) setEvents(await eventsRes.json());
       if (configRes.ok) setConfig(await configRes.json());
