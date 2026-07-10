@@ -934,205 +934,151 @@ app.get("/api/drive-images", async (req, res) => {
   }
 } );
 
-// Helper to upload to Catbox.moe using raw https multipart post
-// Fallback 1: ImgBB
-function uploadToImgBB(apiKey: string, filePath: string): Promise<string> {
+// ============================================================
+// IMAGE UPLOAD FALLBACK SYSTEM
+// Order: Google Drive → uguu.se → litterbox.catbox.moe → ImgBB → local
+// ============================================================
+
+function makeMultipartBuffer(parts: Array<{name: string; value?: string; filename?: string; contentType?: string; fileBuffer?: Buffer}>): { body: Buffer; boundary: string } {
+  const boundary = '----FormBoundary' + Date.now().toString(36);
+  const chunks: Buffer[] = [];
+  for (const part of parts) {
+    chunks.push(Buffer.from(`--${boundary}\r\n`));
+    if (part.filename && part.fileBuffer) {
+      chunks.push(Buffer.from(`Content-Disposition: form-data; name="${part.name}"; filename="${part.filename}"\r\n`));
+      chunks.push(Buffer.from(`Content-Type: ${part.contentType || 'application/octet-stream'}\r\n\r\n`));
+      chunks.push(part.fileBuffer);
+    } else {
+      chunks.push(Buffer.from(`Content-Disposition: form-data; name="${part.name}"\r\n\r\n`));
+      chunks.push(Buffer.from(part.value || ''));
+    }
+    chunks.push(Buffer.from('\r\n'));
+  }
+  chunks.push(Buffer.from(`--${boundary}--\r\n`));
+  return { body: Buffer.concat(chunks), boundary };
+}
+
+function httpsPost(hostname: string, urlPath: string, body: Buffer, contentType: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
-    const filename = path.basename(filePath);
-    const fileBuffer = fs.readFileSync(filePath);
-    const base64Image = fileBuffer.toString("base64");
-    
-    const part1 = `--${boundary}\r\n` +
-                  `Content-Disposition: form-data; name="image"\r\n\r\n` +
-                  `${base64Image}\r\n` +
-                  `--${boundary}--\r\n`;
-
-    const options = {
+    const req = https.request({
       method: 'POST',
-      hostname: 'api.imgbb.com',
-      path: `/1/upload?key=${apiKey}`,
+      hostname,
+      path: urlPath,
       headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': Buffer.byteLength(part1),
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        'Content-Type': contentType,
+        'Content-Length': body.length,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(body);
-          if (parsed.success && parsed.data && parsed.data.url) {
-            resolve(parsed.data.url);
-          } else {
-            reject(new Error(`ImgBB returned error: ${body}`));
-          }
-        } catch (err: any) {
-          reject(new Error(`ImgBB parse error: ${body}`));
-        }
-      });
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => resolve(data));
     });
-
-    req.on('error', (err) => reject(err));
-    req.write(part1);
+    req.on('error', reject);
+    req.write(body);
     req.end();
   });
 }
 
-// Fallback 2: Catbox.moe
-function uploadToCatbox(filePath: string, mimetype: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
-    const filename = path.basename(filePath);
-    const fileBuffer = fs.readFileSync(filePath);
-    
-    const part1 = `--${boundary}\r\n` +
-                  `Content-Disposition: form-data; name="reqtype"\r\n\r\n` +
-                  `fileupload\r\n` +
-                  `--${boundary}\r\n` +
-                  `Content-Disposition: form-data; name="fileToUpload"; filename="${filename}"\r\n` +
-                  `Content-Type: ${mimetype}\r\n\r\n`;
-                  
-    const part2 = `\r\n--${boundary}--\r\n`;
-    
-    const bodyBuffer = Buffer.concat([
-      Buffer.from(part1, "utf-8"),
-      fileBuffer,
-      Buffer.from(part2, "utf-8")
-    ]);
-
-    const options = {
-      method: 'POST',
-      hostname: 'catbox.moe',
-      path: '/user/api.php',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': bodyBuffer.length,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        const url = body.trim();
-        if (url.startsWith("https://")) {
-          resolve(url);
-        } else {
-          reject(new Error(`Catbox returned error: ${url}`));
-        }
-      });
-    });
-
-    req.on('error', (err) => reject(err));
-    req.write(bodyBuffer);
-    req.end();
-  });
+// Fallback 1: uguu.se (48h retention, no key needed, tested & confirmed working)
+async function uploadToUguu(filePath: string, mimetype: string): Promise<string> {
+  const fileBuffer = fs.readFileSync(filePath);
+  const filename = path.basename(filePath);
+  const { body, boundary } = makeMultipartBuffer([
+    { name: 'files[]', filename, contentType: mimetype, fileBuffer }
+  ]);
+  
+  const response = await httpsPost('uguu.se', '/upload', body, `multipart/form-data; boundary=${boundary}`);
+  
+  try {
+    const parsed = JSON.parse(response);
+    if (parsed.files && parsed.files[0] && parsed.files[0].url) {
+      return parsed.files[0].url;
+    }
+  } catch {}
+  
+  const trimmed = response.trim();
+  if (trimmed.startsWith('http')) return trimmed;
+  
+  throw new Error(`uguu.se error: ${response.substring(0, 200)}`);
 }
 
-// Fallback 3: tmpfiles.org
-function uploadToTmpfiles(filePath: string, mimetype: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
-    const filename = path.basename(filePath);
-    const fileBuffer = fs.readFileSync(filePath);
-    
-    const part1 = `--${boundary}\r\n` +
-                  `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
-                  `Content-Type: ${mimetype}\r\n\r\n`;
-                  
-    const part2 = `\r\n--${boundary}--\r\n`;
-    
-    const bodyBuffer = Buffer.concat([
-      Buffer.from(part1, "utf-8"),
-      fileBuffer,
-      Buffer.from(part2, "utf-8")
-    ]);
-
-    const options = {
-      method: 'POST',
-      hostname: 'tmpfiles.org',
-      path: '/api/v1/upload',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': bodyBuffer.length,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try {
-          const responseJson = JSON.parse(body);
-          if (responseJson.status === "success" && responseJson.data && responseJson.data.url) {
-            const rawUrl = responseJson.data.url;
-            const directUrl = rawUrl.replace("https://tmpfiles.org/", "https://tmpfiles.org/dl/");
-            resolve(directUrl);
-          } else {
-            reject(new Error(`tmpfiles.org returned error: ${body}`));
-          }
-        } catch (err: any) {
-          reject(new Error(`tmpfiles.org parse error: ${body}`));
-        }
-      });
-    });
-
-    req.on('error', (err) => reject(err));
-    req.write(bodyBuffer);
-    req.end();
-  });
+// Fallback 2: litterbox.catbox.moe (72h retention, no key needed, tested & confirmed working)
+async function uploadToLitterbox(filePath: string, mimetype: string): Promise<string> {
+  const fileBuffer = fs.readFileSync(filePath);
+  const filename = path.basename(filePath);
+  const { body, boundary } = makeMultipartBuffer([
+    { name: 'reqtype', value: 'fileupload' },
+    { name: 'time', value: '72h' },
+    { name: 'fileToUpload', filename, contentType: mimetype, fileBuffer }
+  ]);
+  
+  const response = await httpsPost('litterbox.catbox.moe', '/resources/internals/api.php', body, `multipart/form-data; boundary=${boundary}`);
+  const url = response.trim();
+  if (url.startsWith('https://')) return url;
+  throw new Error(`litterbox error: ${response.substring(0, 200)}`);
 }
 
-// Master Fallback Router
+// Fallback 3: ImgBB (permanent, needs IMGBB_API_KEY env var)
+async function uploadToImgBB(apiKey: string, filePath: string): Promise<string> {
+  const fileBuffer = fs.readFileSync(filePath);
+  const base64Image = fileBuffer.toString('base64');
+  const { body, boundary } = makeMultipartBuffer([
+    { name: 'image', value: base64Image }
+  ]);
+  
+  const response = await httpsPost('api.imgbb.com', `/1/upload?key=${apiKey}`, body, `multipart/form-data; boundary=${boundary}`);
+  
+  try {
+    const parsed = JSON.parse(response);
+    if (parsed.success && parsed.data && parsed.data.url) {
+      return parsed.data.url;
+    }
+  } catch {}
+  throw new Error(`ImgBB error: ${response.substring(0, 200)}`);
+}
+
+// Fallback 4: Catbox.moe (permanent, no key needed, may be blocked from cloud IPs)
+async function uploadToCatbox(filePath: string, mimetype: string): Promise<string> {
+  const fileBuffer = fs.readFileSync(filePath);
+  const filename = path.basename(filePath);
+  const { body, boundary } = makeMultipartBuffer([
+    { name: 'reqtype', value: 'fileupload' },
+    { name: 'fileToUpload', filename, contentType: mimetype, fileBuffer }
+  ]);
+  
+  const response = await httpsPost('catbox.moe', '/user/api.php', body, `multipart/form-data; boundary=${boundary}`);
+  const url = response.trim();
+  if (url.startsWith('https://')) return url;
+  throw new Error(`Catbox error: ${response.substring(0, 200)}`);
+}
+
+// Master fallback router - tries all services in order
 async function uploadToFallback(filePath: string, mimetype: string): Promise<string> {
+  const services = [
+    { name: 'uguu.se', fn: () => uploadToUguu(filePath, mimetype) },
+    { name: 'litterbox.catbox.moe', fn: () => uploadToLitterbox(filePath, mimetype) },
+    ...(process.env.IMGBB_API_KEY ? [{ name: 'ImgBB', fn: () => uploadToImgBB(process.env.IMGBB_API_KEY!, filePath) }] : []),
+    { name: 'catbox.moe', fn: () => uploadToCatbox(filePath, mimetype) },
+  ];
+  
   const errors: string[] = [];
-
-  // Choice 1: ImgBB if key exists in env variables
-  const imgbbKey = process.env.IMGBB_API_KEY;
-  if (imgbbKey) {
+  for (const svc of services) {
     try {
-      console.log("Attempting fallback upload to ImgBB...");
-      const url = await uploadToImgBB(imgbbKey, filePath);
-      console.log("ImgBB fallback upload succeeded:", url);
+      console.log(`Attempting fallback upload to ${svc.name}...`);
+      const url = await svc.fn();
+      console.log(`✅ ${svc.name} upload succeeded: ${url}`);
       return url;
     } catch (err: any) {
-      console.warn("ImgBB fallback upload failed:", err.message || err);
-      errors.push(`ImgBB (${err.message || err})`);
+      const msg = err.message || String(err);
+      console.warn(`❌ ${svc.name} upload failed: ${msg}`);
+      errors.push(`${svc.name}: ${msg}`);
     }
   }
-
-  // Choice 2: Catbox.moe
-  try {
-    console.log("Attempting fallback upload to Catbox.moe...");
-    const url = await uploadToCatbox(filePath, mimetype);
-    console.log("Catbox.moe fallback upload succeeded:", url);
-    return url;
-  } catch (err: any) {
-    console.warn("Catbox.moe fallback upload failed:", err.message || err);
-    errors.push(`Catbox (${err.message || err})`);
-  }
-
-  // Choice 3: tmpfiles.org
-  try {
-    console.log("Attempting fallback upload to tmpfiles.org...");
-    const url = await uploadToTmpfiles(filePath, mimetype);
-    console.log("tmpfiles.org fallback upload succeeded:", url);
-    return url;
-  } catch (err: any) {
-    console.warn("tmpfiles.org fallback upload failed:", err.message || err);
-    errors.push(`tmpfiles.org (${err.message || err})`);
-  }
-
-  throw new Error(errors.join(" | "));
+  throw new Error(`All fallback uploads failed: ${errors.join(' | ')}`);
 }
 
-// IMAGE UPLOAD ENDPOINT (Local storage + Google Drive option + Multi-fallback)
+// IMAGE UPLOAD ENDPOINT
 app.post("/api/upload", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "กรุณาอัปโหลดไฟล์รูปภาพ" });
@@ -1140,93 +1086,70 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 
   const localPath = `/uploads/${req.file.filename}`;
   const fullLocalPath = path.join(UPLOADS_DIR, req.file.filename);
+  const mimetype = req.file.mimetype;
   
-  // Try to upload to Google Drive if available
+  // Try Google Drive first
   const drive = getGoogleDrive();
   if (drive && GOOGLE_DRIVE_FOLDER_ID) {
     try {
       console.log(`Uploading ${req.file.filename} to Google Drive folder: ${GOOGLE_DRIVE_FOLDER_ID}`);
       
-      const media = {
-        mimeType: req.file.mimetype,
-        body: fs.createReadStream(fullLocalPath),
-      };
-
       const driveResponse: any = await executeWithRetry(() =>
         drive.files.create({
           requestBody: {
             name: req.file!.originalname,
             parents: [GOOGLE_DRIVE_FOLDER_ID],
           },
-          media: media,
+          media: {
+            mimeType: mimetype,
+            body: fs.createReadStream(fullLocalPath),
+          },
           fields: "id, webViewLink, webContentLink",
         })
       );
 
       const driveFile = driveResponse.data;
-      console.log("Uploaded successfully to Google Drive. File ID:", driveFile.id);
+      console.log("Google Drive upload succeeded. File ID:", driveFile.id);
 
       try {
         await executeWithRetry(() =>
           drive.permissions.create({
             fileId: driveFile.id!,
-            requestBody: {
-              role: "reader",
-              type: "anyone",
-            },
+            requestBody: { role: "reader", type: "anyone" },
           })
         );
-        console.log("Set permission to anyone reader for drive file:", driveFile.id);
       } catch (permError) {
-        console.warn("Failed to set permission for Drive file (this is fine if folder is already public):", permError);
+        console.warn("Permission set failed (OK if folder is public):", permError);
       }
-
-      const directUrl = `https://lh3.googleusercontent.com/d/${driveFile.id}`;
 
       return res.json({
         success: true,
-        imageUrl: directUrl,
+        imageUrl: `https://lh3.googleusercontent.com/d/${driveFile.id}`,
         localUrl: localPath,
         driveUrl: driveFile.webContentLink || driveFile.webViewLink,
       });
 
     } catch (driveError: any) {
-      console.error("Error uploading file to Google Drive, falling back to external hosts:", driveError);
-      try {
-        const fallbackUrl = await uploadToFallback(fullLocalPath, req.file.mimetype);
-        return res.json({
-          success: true,
-          imageUrl: fallbackUrl,
-          localUrl: localPath,
-          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive ได้: " + (driveError.message || driveError) + ". ใช้ระบบเก็บไฟล์สำรองสำเร็จ"
-        });
-      } catch (fallbackErr: any) {
-        console.error("All fallback uploaders failed:", fallbackErr);
-        return res.json({
-          success: true,
-          imageUrl: localPath,
-          localUrl: localPath,
-          warning: "ไม่สามารถอัปโหลดไปยัง Google Drive และแหล่งจัดเก็บสำรองได้: " + (fallbackErr.message || fallbackErr) + ". กำลังใช้งานหน่วยความจำเซิร์ฟเวอร์ชั่วคราว"
-        });
-      }
+      console.error("Google Drive upload failed, trying fallback services...");
     }
   }
 
-  // Fallback if Google Drive is not configured
+  // Google Drive failed or not configured → try fallback services
   try {
-    const fallbackUrl = await uploadToFallback(fullLocalPath, req.file.mimetype);
-    res.json({
+    const fallbackUrl = await uploadToFallback(fullLocalPath, mimetype);
+    return res.json({
       success: true,
       imageUrl: fallbackUrl,
       localUrl: localPath,
     });
   } catch (fallbackErr: any) {
-    console.error("Google Drive not configured and fallback failed:", fallbackErr);
-    res.json({
+    console.error("All upload services failed:", fallbackErr.message);
+    // Last resort: return local path (will only work temporarily on Vercel)
+    return res.json({
       success: true,
       imageUrl: localPath,
       localUrl: localPath,
-      warning: "ไม่สามารถอัปโหลดไปยังแหล่งจัดเก็บภายนอกได้. กำลังใช้งานหน่วยความจำเซิร์ฟเวอร์ชั่วคราว"
+      warning: "ไม่สามารถอัปโหลดไปยังระบบจัดเก็บถาวรได้ รูปภาพอาจหายหลังจากเซิร์ฟเวอร์รีสตาร์ท"
     });
   }
 });
