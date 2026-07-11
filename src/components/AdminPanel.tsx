@@ -105,6 +105,9 @@ export default function AdminPanel({
   const [regDate, setRegDate] = useState("");
   const [regPdfUrl, setRegPdfUrl] = useState("");
   const [showRegForm, setShowRegForm] = useState(false);
+  const [uploadingRegImage, setUploadingRegImage] = useState(false);
+  const [regUploadError, setRegUploadError] = useState("");
+  const [regDragActive, setRegDragActive] = useState(false);
 
   // AI Assistant Drafting Form State
   const [aiTopic, setAiTopic] = useState("");
@@ -615,6 +618,70 @@ export default function AdminPanel({
       }
     } catch (err) {
       alert("ลบไม่สำเร็จ");
+    }
+  };
+
+  const handleRegImageUpload = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setRegUploadError("กรุณาเลือกเฉพาะไฟล์รูปภาพ (เช่น png, jpeg, gif)");
+      return;
+    }
+
+    setUploadingRegImage(true);
+    setRegUploadError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`อัปโหลดล้มเหลว: รหัสสถานะ ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.imageUrl) {
+        throw new Error(data.error || "อัปโหลดรูปภาพล้มเหลว");
+      }
+
+      const imageUrl = data.imageUrl;
+      setRegPdfUrl(imageUrl);
+    } catch (err: any) {
+      console.error("Upload Error:", err);
+      setRegUploadError(err.message || "อัปโหลดรูปภาพล้มเหลว");
+    } finally {
+      setUploadingRegImage(false);
+    }
+  };
+
+  const handleRegFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleRegImageUpload(e.target.files[0]);
+    }
+  };
+
+  const handleRegDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setRegDragActive(true);
+    } else if (e.type === "dragleave") {
+      setRegDragActive(false);
+    }
+  };
+
+  const handleRegDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRegDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleRegImageUpload(e.dataTransfer.files[0]);
     }
   };
 
@@ -1673,15 +1740,102 @@ export default function AdminPanel({
                     ></textarea>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs text-slate-500 font-medium">ลิงก์เอกสารอ้างอิง (PDF URL) - (ตัวเลือก)</label>
-                    <input
-                      type="text"
-                      value={regPdfUrl}
-                      onChange={(e) => setRegPdfUrl(e.target.value)}
-                      placeholder="https://example.com/document.pdf"
-                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs"
-                    />
+                  <div className="space-y-1 pt-2 border-t border-slate-100">
+                    <label className="text-xs text-slate-700 font-semibold flex items-center gap-1.5">
+                      <Image className="w-4 h-4 text-pea-purple" />
+                      <span>ไฟล์รูปภาพเอกสารระเบียบข้อบังคับ (ถ้ามี)</span>
+                    </label>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1.5">
+                      {/* Drag & Drop Zone */}
+                      <div
+                        onDragEnter={handleRegDrag}
+                        onDragOver={handleRegDrag}
+                        onDragLeave={handleRegDrag}
+                        onDrop={handleRegDrop}
+                        className={`md:col-span-2 border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[120px] ${regDragActive
+                          ? "border-pea-purple bg-purple-50"
+                          : "border-slate-200 hover:border-purple-300 hover:bg-slate-50"
+                          }`}
+                        onClick={() => document.getElementById("reg-image-file")?.click()}
+                      >
+                        <input
+                          type="file"
+                          id="reg-image-file"
+                          accept="image/*"
+                          onChange={handleRegFileChange}
+                          className="hidden"
+                        />
+
+                        {uploadingRegImage ? (
+                          <div className="space-y-2 text-slate-500">
+                            <RefreshCw className="w-6 h-6 text-pea-purple animate-spin mx-auto" />
+                            <p className="text-xs font-medium">กำลังอัปโหลดไฟล์...</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1 text-slate-500">
+                            <Upload className="w-6 h-6 text-pea-purple/60 mx-auto" />
+                            <div className="text-xs">
+                              <span className="font-semibold text-pea-purple hover:underline">คลิกเพื่ออัปโหลดไฟล์</span> หรือลากไฟล์มาวาง
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-light">รองรับไฟล์ JPG, PNG, GIF (สูงสุด 5MB)</p>
+                          </div>
+                        )}
+
+                        {regUploadError && (
+                          <p className="text-rose-500 text-[10px] mt-2 font-medium flex items-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5" /> {regUploadError}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Preview and direct URL */}
+                      <div className="border border-slate-200 rounded-2xl p-4 flex flex-col justify-between space-y-3 bg-slate-50/50">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0">
+                            {regPdfUrl ? (
+                              <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-pea-purple/30 shadow-sm bg-white">
+                                <img
+                                  src={regPdfUrl}
+                                  alt="Regulation preview"
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setRegPdfUrl("")}
+                                  className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                                  title="ลบรูปภาพ"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
+                                <FileText className="w-6 h-6 opacity-40" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">ไฟล์เอกสาร:</span>
+                            <span className="text-[10px] text-slate-400 font-light">
+                              {regPdfUrl ? "แนบไฟล์แล้ว" : "ยังไม่ได้แนบไฟล์"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] text-slate-500 font-medium">หรือใส่ลิงก์โดยตรง (URL):</span>
+                          <input
+                            type="text"
+                            value={regPdfUrl}
+                            onChange={(e) => setRegPdfUrl(e.target.value)}
+                            placeholder="https://example.com/doc.jpg"
+                            className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-[11px] focus:ring-1 focus:ring-pea-purple"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
