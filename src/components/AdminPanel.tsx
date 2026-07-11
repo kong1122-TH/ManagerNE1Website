@@ -1166,12 +1166,19 @@ export default function AdminPanel({
                         onChange={(e) => setMemRole(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1"
                       >
-                        <option value="สมาชิก">สมาชิกชมรม</option>
+                        <option value="สมาชิกชมรม">สมาชิกชมรม</option>
+                        <option value="ประธานที่ปรึกษากิตติมศักดิ์">ประธานที่ปรึกษากิตติมศักดิ์</option>
+                        <option value="ที่ปรึกษากิตติมศักดิ์">ที่ปรึกษากิตติมศักดิ์</option>
+                        <option value="ประธานที่ปรึกษา">ประธานที่ปรึกษา</option>
+                        <option value="รองประธานที่ปรึกษา">รองประธานที่ปรึกษา</option>
+                        <option value="ที่ปรึกษา">ที่ปรึกษา</option>
                         <option value="ประธานชมรม">ประธานชมรม</option>
                         <option value="รองประธานชมรม">รองประธานชมรม</option>
-                        <option value="เลขานุการชมรม">เลขานุการชมรม</option>
-                        <option value="เหรัญญิก">เหรัญญิก</option>
-                        <option value="กรรมการ">กรรมการ/บอร์ดบริหาร</option>
+                        <option value="ประธานคณะกรรมการ">ประธานคณะกรรมการ</option>
+                        <option value="กรรมการ">กรรมการ</option>
+                        <option value="กรรมการและเลขานุการ">กรรมการและเลขานุการ</option>
+                        <option value="เลขานุการ">เลขานุการ</option>
+                        <option value="ผู้ช่วยเลขานุการ">ผู้ช่วยเลขานุการ</option>
                       </select>
                     </div>
 
