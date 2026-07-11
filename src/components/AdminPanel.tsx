@@ -1112,12 +1112,27 @@ export default function AdminPanel({
                       <label className="text-xs text-slate-500 font-medium">ตำแหน่งในการไฟฟ้า</label>
                       <input
                         type="text"
+                        list="positionOptions"
                         value={memPosition}
                         onChange={(e) => setMemPosition(e.target.value)}
-                        placeholder="เช่น ผู้จัดการการไฟฟ้าส่วนภูมิภาคอำเภอสว่างแดนดิน"
+                        placeholder="เลือกจากรายการ หรือ พิมพ์กรอกเองได้เลย..."
                         className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs"
                         required
                       />
+                      <datalist id="positionOptions">
+                        <option value="ผจก.กฟจ.(12)(CEO)" />
+                        <option value="ผจก.กฟจ.(11)(CEO)" />
+                        <option value="รจก.กฟจ.(11)" />
+                        <option value="รจก.กฟจ.(10)" />
+                        <option value="ผจก.กฟส.(11)" />
+                        <option value="รจก(ท)กฟส.(10)" />
+                        <option value="รจก(ล)กฟส.(10)" />
+                        <option value="ผจก.กฟส.(10)" />
+                        <option value="ชจก.(ท)กฟส.(9)" />
+                        <option value="ชจก.(ล)กฟส.(9)" />
+                        <option value="ผจก.กฟส.(9)" />
+                        <option value="ผจก.กฟส.(8)" />
+                      </datalist>
                     </div>
                   </div>
 

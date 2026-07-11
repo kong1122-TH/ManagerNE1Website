@@ -271,9 +271,6 @@ export default function App() {
                   >
                     <Icon className={`w-4 h-4 ${isActive ? "text-pea-purple" : "text-slate-400"}`} />
                     <span>{item.label}</span>
-                    {item.isSecure && (
-                      <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" title="ต้องการรหัสผ่านความปลอดภัย" />
-                    )}
                   </button>
                 );
               })}

@@ -28,7 +28,7 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
 
     const matchesOffice = selectedOffice === "ทั้งหมด" || member.peaOffice === selectedOffice;
 
-    const isCommittee = member.role !== "สมาชิกชมรม";
+    const isCommittee = !["สมาชิก", "สมาชิกชมรม", "สมาชิกทั่วไป", "", undefined, null].includes(member.role?.trim());
 
     let matchesRoleGroup = true;
     if (selectedRoleGroup === "คณะกรรมการ") {
@@ -57,17 +57,49 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
     "สมาชิกชมรม": 13,
   };
 
+  const positionOrderList = [
+    "ผจก.กฟจ.(12)(CEO)",
+    "ผจก.กฟจ.(11)(CEO)",
+    "รจก.กฟจ.(11)",
+    "รจก.กฟจ.(10)",
+    "ผจก.กฟส.(11)",
+    "รจก(ท)กฟส.(10)",
+    "รจก(ล)กฟส.(10)",
+    "ผจก.กฟส.(10)",
+    "ชจก.(ท)กฟส.(9)",
+    "ชจก.(ล)กฟส.(9)",
+    "ผจก.กฟส.(9)",
+    "ผจก.กฟส.(8)",
+  ];
+
+  const getPositionPriority = (position: string) => {
+    if (!position) return 99;
+    // หาว่าตำแหน่งมีคำที่ตรงกับใน list หรือไม่
+    const matchIndex = positionOrderList.findIndex(p => position.includes(p));
+    return matchIndex !== -1 ? matchIndex : 99;
+  };
+
   const sortedMembers = [...filteredMembers].sort((a, b) => {
-    const orderA = roleOrder[a.role] || 99;
-    const orderB = roleOrder[b.role] || 99;
-    return orderA - orderB;
+    const orderRoleA = roleOrder[a.role] || 99;
+    const orderRoleB = roleOrder[b.role] || 99;
+    
+    if (orderRoleA !== orderRoleB) {
+      return orderRoleA - orderRoleB;
+    }
+    
+    // ถ้าบทบาทในชมรมเท่ากัน ให้เรียงตามตำแหน่งย่อย
+    const orderPosA = getPositionPriority(a.position);
+    const orderPosB = getPositionPriority(b.position);
+    
+    return orderPosA - orderPosB;
   });
 
   // Calculate statistics
   const totalCount = members.length;
   const activeCount = members.filter((m) => m.status === "Active").length;
   const uniqueBranchesCount = new Set(members.map((m) => m.peaOffice)).size;
-  const committeeCount = members.filter((m) => m.role !== "สมาชิกชมรม").length;
+  const committeeCount = members.filter((m) => !["สมาชิก", "สมาชิกชมรม", "สมาชิกทั่วไป", "", undefined, null].includes(m.role?.trim())).length;
+  const generalCount = totalCount - committeeCount;
 
   return (
     <div className="space-y-8">
@@ -85,8 +117,8 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-slate-400 text-xs">สมาชิกทั้งหมด</p>
-              <h4 className="text-xl font-bold text-slate-800">{totalCount} ท่าน</h4>
+              <p className="text-slate-400 text-xs">สมาชิกทั่วไป</p>
+              <h4 className="text-xl font-bold text-slate-800">{generalCount} ท่าน</h4>
             </div>
           </div>
 
@@ -183,7 +215,7 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedMembers.map((member, index) => {
-            const isCommittee = member.role !== "สมาชิกชมรม";
+            const isCommittee = !["สมาชิก", "สมาชิกชมรม", "สมาชิกทั่วไป", "", undefined, null].includes(member.role?.trim());
 
             return (
               <motion.div

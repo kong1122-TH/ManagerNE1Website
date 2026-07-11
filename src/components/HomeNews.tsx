@@ -557,7 +557,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
             </div>
 
             {/* Live Filter list */}
-            <div className="space-y-2 overflow-y-auto max-h-[160px] pr-1 scrollbar-none">
+            <div className="space-y-2 overflow-y-auto max-h-[240px] pr-1 scrollbar-none">
               {filteredMembers.length === 0 ? (
                 <div className="text-center py-4 text-slate-400 text-[11px] font-light">
                   ไม่พบรายชื่อตรงกัน
