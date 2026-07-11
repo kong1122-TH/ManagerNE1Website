@@ -567,44 +567,26 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
       return res.status(400).json({ success: false, error: "No file uploaded." });
     }
 
-    const drive = getGoogleDrive();
-    if (!drive) {
-      // Fallback to local file path if no Google Drive configured
+    const imgbbKey = process.env.IMGBB_API_KEY;
+    if (!imgbbKey) {
+      // Fallback to local file path if no ImgBB key configured
       const localUrl = `/uploads/${file.filename}`;
       return res.json({ success: true, imageUrl: localUrl });
     }
 
-    // Google Drive Upload
-    const fileMetadata = {
-      name: file.originalname,
-      parents: [GOOGLE_DRIVE_FOLDER_ID],
-    };
+    // ImgBB Upload
+    const base64Image = fs.readFileSync(file.path, { encoding: "base64" });
+    const formData = new URLSearchParams();
+    formData.append("key", imgbbKey);
+    formData.append("image", base64Image);
 
-    const media = {
-      mimeType: file.mimetype,
-      body: fs.createReadStream(file.path),
-    };
-
-    const response = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: "id, webViewLink, webContentLink",
+    // Using native fetch (Available in Node 18+)
+    const response = await fetch("https://api.imgbb.com/1/upload", {
+      method: "POST",
+      body: formData,
     });
 
-    const fileId = response.data.id;
-    
-    // Make file public (if folder is not already public)
-    try {
-      await drive.permissions.create({
-        fileId: fileId,
-        requestBody: {
-          role: "reader",
-          type: "anyone",
-        },
-      });
-    } catch (permErr) {
-      console.warn("Could not set public permission:", permErr);
-    }
+    const data = await response.json();
 
     // Clean up local file after successful upload
     try {
@@ -613,20 +595,19 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
       console.warn("Could not delete temporary file:", e);
     }
 
-    // Direct link for <img> tags
-    let imageUrl = response.data.webViewLink;
-    if (fileId) {
-       imageUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    if (data && data.success) {
+      res.json({
+        success: true,
+        fileId: data.data.id,
+        imageUrl: data.data.url, // This is the direct image URL from ImgBB
+      });
+    } else {
+      console.error("ImgBB upload failed:", data);
+      res.status(500).json({ success: false, error: "Failed to upload to ImgBB." });
     }
-
-    res.json({
-      success: true,
-      fileId: fileId,
-      imageUrl: imageUrl,
-    });
   } catch (error: any) {
-    console.error("Error uploading to Google Drive:", error);
-    res.status(500).json({ success: false, error: "Failed to upload file to Google Drive." });
+    console.error("Error uploading to ImgBB:", error);
+    res.status(500).json({ success: false, error: "Failed to upload file to ImgBB." });
   }
 });
 
