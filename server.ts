@@ -551,6 +551,76 @@ async function saveSheetData(sheetName: string, headers: string[], items: any[])
 }
 
 // Define API Endpoints
+app.post("/api/upload", upload.single("image"), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, error: "No file uploaded." });
+    }
+
+    const drive = getGoogleDrive();
+    if (!drive) {
+      // Fallback to local file path if no Google Drive configured
+      const localUrl = `/uploads/${file.filename}`;
+      return res.json({ success: true, imageUrl: localUrl });
+    }
+
+    // Google Drive Upload
+    const fileMetadata = {
+      name: file.originalname,
+      parents: [GOOGLE_DRIVE_FOLDER_ID],
+    };
+
+    const media = {
+      mimeType: file.mimetype,
+      body: fs.createReadStream(file.path),
+    };
+
+    const response = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: "id, webViewLink, webContentLink",
+    });
+
+    const fileId = response.data.id;
+    
+    // Make file public (if folder is not already public)
+    try {
+      await drive.permissions.create({
+        fileId: fileId,
+        requestBody: {
+          role: "reader",
+          type: "anyone",
+        },
+      });
+    } catch (permErr) {
+      console.warn("Could not set public permission:", permErr);
+    }
+
+    // Clean up local file after successful upload
+    try {
+      fs.unlinkSync(file.path);
+    } catch (e) {
+      console.warn("Could not delete temporary file:", e);
+    }
+
+    // Direct link for <img> tags
+    let imageUrl = response.data.webViewLink;
+    if (fileId) {
+       imageUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    }
+
+    res.json({
+      success: true,
+      fileId: fileId,
+      imageUrl: imageUrl,
+    });
+  } catch (error: any) {
+    console.error("Error uploading to Google Drive:", error);
+    res.status(500).json({ success: false, error: "Failed to upload file to Google Drive." });
+  }
+});
+
 app.get("/api/config", (req, res) => {
   const hasCreds = !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && !!process.env.GOOGLE_PRIVATE_KEY;
   res.json({
