@@ -52,6 +52,16 @@ export default function RegulationsViewer({ regulations }: RegulationsViewerProp
                 {reg.content}
               </p>
 
+              {reg.images && reg.images.length > 0 && (
+                <div className={`mb-4 grid gap-2 ${reg.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                  {reg.images.map((img, i) => (
+                    <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-slate-100 shadow-sm hover:opacity-90 transition-opacity aspect-video">
+                      <img src={img} alt={`Regulation ${reg.title} image ${i+1}`} className="w-full h-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              )}
+
               {reg.pdfUrl ? (
                 <a
                   href={reg.pdfUrl}

@@ -55,4 +55,5 @@ export interface Regulation {
   content: string;
   date: string;
   pdfUrl?: string;
+  images?: string[];
 }

@@ -104,6 +104,7 @@ export default function AdminPanel({
   const [regContent, setRegContent] = useState("");
   const [regDate, setRegDate] = useState("");
   const [regPdfUrl, setRegPdfUrl] = useState("");
+  const [regImages, setRegImages] = useState<string[]>([]);
   const [showRegForm, setShowRegForm] = useState(false);
   const [uploadingRegImage, setUploadingRegImage] = useState(false);
   const [regUploadError, setRegUploadError] = useState("");
@@ -553,6 +554,7 @@ export default function AdminPanel({
     setRegContent(reg.content);
     setRegDate(reg.date);
     setRegPdfUrl(reg.pdfUrl || "");
+    setRegImages(reg.images || []);
     setShowRegForm(true);
   };
 
@@ -562,6 +564,7 @@ export default function AdminPanel({
     setRegContent("");
     setRegDate(new Date().toISOString().split("T")[0]);
     setRegPdfUrl("");
+    setRegImages([]);
     setShowRegForm(true);
   };
 
@@ -574,6 +577,7 @@ export default function AdminPanel({
       content: regContent,
       date: regDate,
       pdfUrl: regPdfUrl,
+      images: regImages,
     };
 
     try {
@@ -621,36 +625,43 @@ export default function AdminPanel({
     }
   };
 
-  const handleRegImageUpload = async (file: File) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setRegUploadError("กรุณาเลือกเฉพาะไฟล์รูปภาพ (เช่น png, jpeg, gif)");
-      return;
-    }
+  const handleRegImageUpload = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
 
     setUploadingRegImage(true);
     setRegUploadError("");
 
     try {
-      const formData = new FormData();
-      formData.append("image", file);
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith("image/")) continue;
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+        const formData = new FormData();
+        formData.append("image", file);
 
-      if (!response.ok) {
-        throw new Error(`อัปโหลดล้มเหลว: รหัสสถานะ ${response.status}`);
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`อัปโหลดล้มเหลว: รหัสสถานะ ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success || !data.imageUrl) {
+          throw new Error(data.error || "อัปโหลดรูปภาพล้มเหลว");
+        }
+        uploadedUrls.push(data.imageUrl);
       }
-
-      const data = await response.json();
-      if (!data.success || !data.imageUrl) {
-        throw new Error(data.error || "อัปโหลดรูปภาพล้มเหลว");
+      
+      if (uploadedUrls.length > 0) {
+        setRegImages(prev => [...prev, ...uploadedUrls]);
+        setRegPdfUrl(prev => prev || uploadedUrls[0]);
+      } else {
+        setRegUploadError("กรุณาเลือกเฉพาะไฟล์รูปภาพ (เช่น png, jpeg, gif)");
       }
-
-      const imageUrl = data.imageUrl;
-      setRegPdfUrl(imageUrl);
     } catch (err: any) {
       console.error("Upload Error:", err);
       setRegUploadError(err.message || "อัปโหลดรูปภาพล้มเหลว");
@@ -660,8 +671,8 @@ export default function AdminPanel({
   };
 
   const handleRegFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleRegImageUpload(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      handleRegImageUpload(e.target.files);
     }
   };
 
@@ -680,9 +691,13 @@ export default function AdminPanel({
     e.stopPropagation();
     setRegDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleRegImageUpload(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleRegImageUpload(e.dataTransfer.files);
     }
+  };
+
+  const removeRegImage = (indexToRemove: number) => {
+    setRegImages(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
   // ---------------- AI NEWS DRAFTING (GEMINI) ----------------
@@ -1746,14 +1761,14 @@ export default function AdminPanel({
                       <span>ไฟล์รูปภาพเอกสารระเบียบข้อบังคับ (ถ้ามี)</span>
                     </label>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1.5">
+                    <div className="grid grid-cols-1 gap-4 mt-1.5">
                       {/* Drag & Drop Zone */}
                       <div
                         onDragEnter={handleRegDrag}
                         onDragOver={handleRegDrag}
                         onDragLeave={handleRegDrag}
                         onDrop={handleRegDrop}
-                        className={`md:col-span-2 border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[120px] ${regDragActive
+                        className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[120px] ${regDragActive
                           ? "border-pea-purple bg-purple-50"
                           : "border-slate-200 hover:border-purple-300 hover:bg-slate-50"
                           }`}
@@ -1763,6 +1778,7 @@ export default function AdminPanel({
                           type="file"
                           id="reg-image-file"
                           accept="image/*"
+                          multiple
                           onChange={handleRegFileChange}
                           className="hidden"
                         />
@@ -1776,9 +1792,9 @@ export default function AdminPanel({
                           <div className="space-y-1 text-slate-500">
                             <Upload className="w-6 h-6 text-pea-purple/60 mx-auto" />
                             <div className="text-xs">
-                              <span className="font-semibold text-pea-purple hover:underline">คลิกเพื่ออัปโหลดไฟล์</span> หรือลากไฟล์มาวาง
+                              <span className="font-semibold text-pea-purple hover:underline">คลิกเพื่ออัปโหลดไฟล์</span> หรือลากไฟล์มาวาง (อัปโหลดพร้อมกันได้หลายไฟล์)
                             </div>
-                            <p className="text-[10px] text-slate-400 font-light">รองรับไฟล์ JPG, PNG, GIF (สูงสุด 5MB)</p>
+                            <p className="text-[10px] text-slate-400 font-light">รองรับไฟล์ JPG, PNG, GIF (สูงสุด 5MB ต่อไฟล์)</p>
                           </div>
                         )}
 
@@ -1789,52 +1805,38 @@ export default function AdminPanel({
                         )}
                       </div>
 
-                      {/* Preview and direct URL */}
-                      <div className="border border-slate-200 rounded-2xl p-4 flex flex-col justify-between space-y-3 bg-slate-50/50">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0">
-                            {regPdfUrl ? (
-                              <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-pea-purple/30 shadow-sm bg-white">
-                                <img
-                                  src={regPdfUrl}
-                                  alt="Regulation preview"
-                                  className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
+                      {/* Image Preview Grid */}
+                      {regImages.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {regImages.map((imgUrl, index) => (
+                            <div key={index} className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm aspect-video">
+                              <img src={imgUrl} alt={`Uploaded ${index}`} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <button
                                   type="button"
-                                  onClick={() => setRegPdfUrl("")}
-                                  className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                                  title="ลบรูปภาพ"
+                                  onClick={() => removeRegImage(index)}
+                                  className="p-2 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition-colors shadow-lg transform hover:scale-110"
                                 >
-                                  <X className="w-4 h-4" />
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
-                            ) : (
-                              <div className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
-                                <FileText className="w-6 h-6 opacity-40" />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">ไฟล์เอกสาร:</span>
-                            <span className="text-[10px] text-slate-400 font-light">
-                              {regPdfUrl ? "แนบไฟล์แล้ว" : "ยังไม่ได้แนบไฟล์"}
-                            </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="border border-slate-200 rounded-2xl p-4 flex flex-col justify-between space-y-3 bg-slate-50/50">
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-slate-500 font-medium">ไม่มีไฟล์ภาพ หากต้องการใส่ลิงก์โดยตรง (URL):</span>
+                            <input
+                              type="text"
+                              value={regPdfUrl}
+                              onChange={(e) => setRegPdfUrl(e.target.value)}
+                              placeholder="https://example.com/doc.jpg"
+                              className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-[11px] focus:ring-1 focus:ring-pea-purple"
+                            />
                           </div>
                         </div>
-
-                        <div className="space-y-1">
-                          <span className="text-[10px] text-slate-500 font-medium">หรือใส่ลิงก์โดยตรง (URL):</span>
-                          <input
-                            type="text"
-                            value={regPdfUrl}
-                            onChange={(e) => setRegPdfUrl(e.target.value)}
-                            placeholder="https://example.com/doc.jpg"
-                            className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-[11px] focus:ring-1 focus:ring-pea-purple"
-                          />
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 

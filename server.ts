@@ -1268,24 +1268,48 @@ app.get("/api/regulations", async (req, res) => {
     return res.json(cache.regulations.data);
   }
 
-  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const headers = ["id", "title", "content", "date", "pdfUrl", "images"];
   const regulations = await fetchSheetData("Regulations", headers);
   
-  cache.regulations.data = regulations;
+  const processedRegulations = regulations.map((item) => {
+    let images: string[] = [];
+    if (item.images) {
+      try {
+        if (typeof item.images === "string" && item.images.trim().startsWith("[")) {
+          images = JSON.parse(item.images);
+        } else if (Array.isArray(item.images)) {
+          images = item.images;
+        } else if (typeof item.images === "string" && item.images) {
+          images = [item.images];
+        }
+      } catch (e) {
+        images = [];
+      }
+    }
+    return {
+      ...item,
+      images: images
+    };
+  });
+
+  cache.regulations.data = processedRegulations;
   cache.regulations.lastUpdated = now;
-  res.json(regulations);
+  res.json(processedRegulations);
 });
 
 app.post("/api/regulations", async (req, res) => {
-  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const headers = ["id", "title", "content", "date", "pdfUrl", "images"];
   const regulationsList = await fetchSheetData("Regulations", headers);
+
+  const images = Array.isArray(req.body.images) ? req.body.images : [];
 
   const newItem = {
     id: `reg-${Date.now()}`,
     title: req.body.title || "ไม่มีหัวข้อ",
     content: req.body.content || "",
     date: req.body.date || new Date().toISOString().split("T")[0],
-    pdfUrl: req.body.pdfUrl || ""
+    pdfUrl: req.body.pdfUrl || "",
+    images: images
   };
 
   regulationsList.push(newItem);
@@ -1295,7 +1319,7 @@ app.post("/api/regulations", async (req, res) => {
 
 app.put("/api/regulations/:id", async (req, res) => {
   const { id } = req.params;
-  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const headers = ["id", "title", "content", "date", "pdfUrl", "images"];
   const regulationsList = await fetchSheetData("Regulations", headers);
   
   const index = regulationsList.findIndex((r) => r.id === id);
@@ -1303,12 +1327,37 @@ app.put("/api/regulations/:id", async (req, res) => {
     return res.status(404).json({ error: "ไม่พบระเบียบที่ต้องการแก้ไข" });
   }
 
+  let updatedImages = req.body.images;
+  if (updatedImages !== undefined) {
+    if (typeof updatedImages === "string" && updatedImages.startsWith("[")) {
+      try {
+        updatedImages = JSON.parse(updatedImages);
+      } catch {
+        updatedImages = [updatedImages];
+      }
+    }
+  } else {
+    const existing = regulationsList[index].images;
+    if (typeof existing === "string" && existing.startsWith("[")) {
+      try { updatedImages = JSON.parse(existing); } catch { updatedImages = [existing]; }
+    } else if (Array.isArray(existing)) {
+      updatedImages = existing;
+    } else {
+      updatedImages = [];
+    }
+  }
+
+  if (!Array.isArray(updatedImages)) {
+    updatedImages = [];
+  }
+
   regulationsList[index] = {
     ...regulationsList[index],
     title: req.body.title ?? regulationsList[index].title,
     content: req.body.content ?? regulationsList[index].content,
     date: req.body.date ?? regulationsList[index].date,
-    pdfUrl: req.body.pdfUrl ?? regulationsList[index].pdfUrl
+    pdfUrl: req.body.pdfUrl ?? regulationsList[index].pdfUrl,
+    images: updatedImages
   };
 
   await saveSheetData("Regulations", headers, regulationsList);
@@ -1317,7 +1366,7 @@ app.put("/api/regulations/:id", async (req, res) => {
 
 app.delete("/api/regulations/:id", async (req, res) => {
   const { id } = req.params;
-  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const headers = ["id", "title", "content", "date", "pdfUrl", "images"];
   const regulationsList = await fetchSheetData("Regulations", headers);
   
   const filtered = regulationsList.filter((r) => r.id !== id);
