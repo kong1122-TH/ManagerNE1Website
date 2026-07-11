@@ -406,7 +406,7 @@ async function ensureGoogleSheetsStructure() {
       { name: "Members", headers: ["id", "name", "position", "peaOffice", "email", "phone", "status", "role", "imageUrl"] },
       { name: "Calendar", headers: ["id", "title", "description", "date", "time", "location", "category"] },
       { name: "Messages", headers: ["id", "senderName", "senderPosition", "message", "timestamp"] },
-      { name: "Regulations", headers: ["id", "title", "content", "date", "pdfUrl"] },
+      { name: "Regulations", headers: ["id", "title", "content", "date", "pdfUrl", "images"] },
     ];
 
     const sheetsToCreate = requiredSheets.filter((rs) => !existingTitles.includes(rs.name));
@@ -512,7 +512,39 @@ async function fetchSheetData(sheetName: string, headers: string[]): Promise<any
     }
 
     return items;
-  } catch (error) {
+  } catch (error: any) {
+    if (error && error.message && error.message.includes("Unable to parse range")) {
+      console.log(`Sheet ${sheetName} not found. Attempting to create missing sheets...`);
+      try {
+        await ensureGoogleSheetsStructure();
+        // Retry fetch once
+        const retryRes: any = await executeWithRetry(() =>
+          sheets.spreadsheets.values.get({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: `${sheetName}!A1:Z500`,
+          })
+        );
+        const retryRows = retryRes.data.values || [];
+        if (retryRows.length <= 1) return [];
+        const sheetHeaders = retryRows[0].map((h: string) => h.trim());
+        const retryItems: any[] = [];
+        for (let i = 1; i < retryRows.length; i++) {
+          const row = retryRows[i];
+          const item: any = {};
+          sheetHeaders.forEach((header: string, index: number) => {
+            if (header) {
+              const val = row[index] ?? "";
+              item[header] = val;
+            }
+          });
+          retryItems.push(item);
+        }
+        return retryItems;
+      } catch (retryError) {
+         console.error(`Retry failed for ${sheetName}:`, retryError);
+      }
+    }
+
     console.error(`Error fetching sheet ${sheetName}, falling back to local file DB:`, error);
     const localDb = readLocalDB();
     const key = sheetName.toLowerCase() as keyof typeof DEFAULT_DATABASE;
@@ -547,23 +579,37 @@ async function saveSheetData(sheetName: string, headers: string[], items: any[])
       values.push(row);
     });
 
-    // Clear old contents first to avoid leaving orphaned rows
-    await executeWithRetry(() =>
-      sheets.spreadsheets.values.clear({
-        spreadsheetId: GOOGLE_SHEET_ID,
-        range: `${sheetName}!A1:Z1000`,
-      })
-    );
+    const updateRoutine = async () => {
+      // Clear old contents first to avoid leaving orphaned rows
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.clear({
+          spreadsheetId: GOOGLE_SHEET_ID,
+          range: `${sheetName}!A1:Z1000`,
+        })
+      );
 
-    // Update with new list
-    await executeWithRetry(() =>
-      sheets.spreadsheets.values.update({
-        spreadsheetId: GOOGLE_SHEET_ID,
-        range: `${sheetName}!A1`,
-        valueInputOption: "RAW",
-        requestBody: { values },
-      })
-    );
+      // Update with new list
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId: GOOGLE_SHEET_ID,
+          range: `${sheetName}!A1`,
+          valueInputOption: "RAW",
+          requestBody: { values },
+        })
+      );
+    };
+
+    try {
+      await updateRoutine();
+    } catch (error: any) {
+      if (error && error.message && error.message.includes("Unable to parse range")) {
+        console.log(`Sheet ${sheetName} not found during save. Attempting to create missing sheets...`);
+        await ensureGoogleSheetsStructure();
+        await updateRoutine();
+      } else {
+        throw error;
+      }
+    }
     console.log(`Successfully synced ${sheetName} to Google Sheet`);
   } catch (error) {
     console.error(`Error saving sheet ${sheetName} to Google Sheets:`, error);
