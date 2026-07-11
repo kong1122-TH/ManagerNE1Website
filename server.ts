@@ -209,6 +209,15 @@ const DEFAULT_DATABASE = {
       category: "กิจกรรม"
     }
   ],
+  regulations: [
+    {
+      id: "reg-1",
+      title: "ระเบียบการเบิกจ่ายงบประมาณชมรม ปี 2569",
+      content: "อ้างอิงจากมติที่ประชุมสามัญครั้งที่ 1/2569 การเบิกจ่ายงบประมาณเพื่อกิจกรรม CSR ต้องมีการเสนอโครงการให้คณะกรรมการพิจารณาอนุมัติก่อน",
+      date: "2026-06-01",
+      pdfUrl: ""
+    }
+  ],
   messages: [
     {
       id: "msg-1",
@@ -288,6 +297,7 @@ const cache: { [key: string]: CacheStore } = {
   members: { data: null, lastUpdated: 0 },
   calendar: { data: null, lastUpdated: 0 },
   messages: { data: null, lastUpdated: 0 },
+  regulations: { data: null, lastUpdated: 0 },
 };
 const CACHE_TTL = 30000; // 30 seconds caching to optimize Google Sheets API quota limits
 
@@ -396,6 +406,7 @@ async function ensureGoogleSheetsStructure() {
       { name: "Members", headers: ["id", "name", "position", "peaOffice", "email", "phone", "status", "role", "imageUrl"] },
       { name: "Calendar", headers: ["id", "title", "description", "date", "time", "location", "category"] },
       { name: "Messages", headers: ["id", "senderName", "senderPosition", "message", "timestamp"] },
+      { name: "Regulations", headers: ["id", "title", "content", "date", "pdfUrl"] },
     ];
 
     const sheetsToCreate = requiredSheets.filter((rs) => !existingTitles.includes(rs.name));
@@ -1248,6 +1259,70 @@ app.post("/api/ai/draft-news", async (req, res) => {
     console.error("Gemini AI News drafting error:", error);
     res.status(500).json({ error: "AI ไม่สามารถสร้างเนื้อหาได้ในขณะนี้: " + error.message });
   }
+});
+
+// REGULATIONS ENDPOINTS
+app.get("/api/regulations", async (req, res) => {
+  const now = Date.now();
+  if (cache.regulations.data && now - cache.regulations.lastUpdated < CACHE_TTL) {
+    return res.json(cache.regulations.data);
+  }
+
+  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const regulations = await fetchSheetData("Regulations", headers);
+  
+  cache.regulations.data = regulations;
+  cache.regulations.lastUpdated = now;
+  res.json(regulations);
+});
+
+app.post("/api/regulations", async (req, res) => {
+  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const regulationsList = await fetchSheetData("Regulations", headers);
+
+  const newItem = {
+    id: `reg-${Date.now()}`,
+    title: req.body.title || "ไม่มีหัวข้อ",
+    content: req.body.content || "",
+    date: req.body.date || new Date().toISOString().split("T")[0],
+    pdfUrl: req.body.pdfUrl || ""
+  };
+
+  regulationsList.push(newItem);
+  await saveSheetData("Regulations", headers, regulationsList);
+  res.json(newItem);
+});
+
+app.put("/api/regulations/:id", async (req, res) => {
+  const { id } = req.params;
+  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const regulationsList = await fetchSheetData("Regulations", headers);
+  
+  const index = regulationsList.findIndex((r) => r.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: "ไม่พบระเบียบที่ต้องการแก้ไข" });
+  }
+
+  regulationsList[index] = {
+    ...regulationsList[index],
+    title: req.body.title ?? regulationsList[index].title,
+    content: req.body.content ?? regulationsList[index].content,
+    date: req.body.date ?? regulationsList[index].date,
+    pdfUrl: req.body.pdfUrl ?? regulationsList[index].pdfUrl
+  };
+
+  await saveSheetData("Regulations", headers, regulationsList);
+  res.json(regulationsList[index]);
+});
+
+app.delete("/api/regulations/:id", async (req, res) => {
+  const { id } = req.params;
+  const headers = ["id", "title", "content", "date", "pdfUrl"];
+  const regulationsList = await fetchSheetData("Regulations", headers);
+  
+  const filtered = regulationsList.filter((r) => r.id !== id);
+  await saveSheetData("Regulations", headers, filtered);
+  res.json({ success: true });
 });
 
 // Vite & Static file handling

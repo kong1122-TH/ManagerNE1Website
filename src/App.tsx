@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 // Types
-import { News, Member, CalendarEvent, Message, AppConfig } from "./types";
+import { News, Member, CalendarEvent, Message, AppConfig, Regulation } from "./types";
 
 // Sub-components
 import HomeNews from "./components/HomeNews";
@@ -25,6 +25,8 @@ import MemberDirectory from "./components/MemberDirectory";
 import CalendarDashboard from "./components/CalendarDashboard";
 import SecureForum from "./components/SecureForum";
 import AdminPanel from "./components/AdminPanel";
+import RegulationsViewer from "./components/RegulationsViewer";
+import { BookOpen } from "lucide-react";
 
 // Firebase Integration
 import { collection, onSnapshot, query, orderBy, limit, addDoc } from "firebase/firestore";
@@ -35,13 +37,14 @@ import { db, auth, handleFirestoreError, OperationType } from "./firebase";
 import clubLogo from "./assets/images/regenerated_image_1783494444543.jpg";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"home" | "members" | "calendar" | "forum" | "admin">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "members" | "calendar" | "forum" | "regulations" | "admin">("home");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Database States
   const [newsList, setNewsList] = useState<News[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [regulations, setRegulations] = useState<Regulation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
 
@@ -54,11 +57,12 @@ export default function App() {
   const fetchAllData = async () => {
     setIsLoading(true);
     try {
-      const [newsRes, membersRes, eventsRes, configRes] = await Promise.all([
+      const [newsRes, membersRes, eventsRes, configRes, regulationsRes] = await Promise.all([
         fetch("/api/news"),
         fetch("/api/members"),
         fetch("/api/calendar"),
         fetch("/api/config"),
+        fetch("/api/regulations"),
       ]);
 
       if (newsRes.ok) {
@@ -68,6 +72,10 @@ export default function App() {
       if (membersRes.ok) setMembers(await membersRes.json());
       if (eventsRes.ok) setEvents(await eventsRes.json());
       if (configRes.ok) setConfig(await configRes.json());
+      if (regulationsRes.ok) {
+        const regData = await regulationsRes.json();
+        setRegulations(regData.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      }
     } catch (error) {
       console.error("Error loading application datasets:", error);
     } finally {
@@ -218,6 +226,7 @@ export default function App() {
     { id: "home", label: "ข่าวสารกิจกรรม", icon: Home },
     { id: "members", label: "ทำเนียบสมาชิก", icon: Users },
     { id: "calendar", label: "ปฏิทินกิจกรรม", icon: CalendarIcon },
+    { id: "regulations", label: "ระเบียบที่เกี่ยวข้อง", icon: BookOpen },
     { id: "forum", label: "ติดต่อสื่อสารภายใน", icon: MessageSquare, isSecure: true },
     { id: "admin", label: "ระบบแอดมิน", icon: Settings },
   ];
@@ -375,15 +384,18 @@ export default function App() {
                 isLoading={isForumLoading}
               />
             )}
+            {activeTab === "regulations" && <RegulationsViewer regulations={regulations} />}
             {activeTab === "admin" && (
               <AdminPanel
                 newsList={newsList}
                 members={members}
                 events={events}
+                regulations={regulations}
                 config={config}
                 onNewsChange={fetchAllData}
                 onMembersChange={fetchAllData}
                 onEventsChange={fetchAllData}
+                onRegulationsChange={fetchAllData}
               />
             )}
           </motion.div>

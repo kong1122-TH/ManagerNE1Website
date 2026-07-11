@@ -20,7 +20,7 @@ import {
   Upload,
   Image
 } from "lucide-react";
-import { News, Member, CalendarEvent, AppConfig } from "../types";
+import { News, Member, CalendarEvent, AppConfig, Regulation } from "../types";
 
 // @ts-ignore
 import clubLogo from "../assets/images/regenerated_image_1783494444543.jpg";
@@ -30,9 +30,11 @@ interface AdminPanelProps {
   members: Member[];
   events: CalendarEvent[];
   config: AppConfig | null;
+  regulations?: Regulation[];
   onNewsChange: () => void;
   onMembersChange: () => void;
   onEventsChange: () => void;
+  onRegulationsChange?: () => void;
 }
 
 export default function AdminPanel({
@@ -40,9 +42,11 @@ export default function AdminPanel({
   members,
   events,
   config,
+  regulations = [],
   onNewsChange,
   onMembersChange,
-  onEventsChange
+  onEventsChange,
+  onRegulationsChange
 }: AdminPanelProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [passcode, setPasscode] = useState("");
@@ -50,7 +54,7 @@ export default function AdminPanel({
   const [isLogginIn, setIsLoggingIn] = useState(false);
 
   // Admin Internal Section Tab
-  const [activeTab, setActiveTab] = useState<"news" | "members" | "calendar" | "ai_assistant">("news");
+  const [activeTab, setActiveTab] = useState<"news" | "members" | "calendar" | "regulations" | "ai_assistant">("news");
 
   // Fetching States
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +97,14 @@ export default function AdminPanel({
   const [eventLocation, setEventLocation] = useState("");
   const [eventCategory, setEventCategory] = useState("กิจกรรม");
   const [showEventForm, setShowEventForm] = useState(false);
+
+  // Regulations Form State
+  const [selectedRegId, setSelectedRegId] = useState<string | null>(null);
+  const [regTitle, setRegTitle] = useState("");
+  const [regContent, setRegContent] = useState("");
+  const [regDate, setRegDate] = useState("");
+  const [regPdfUrl, setRegPdfUrl] = useState("");
+  const [showRegForm, setShowRegForm] = useState(false);
 
   // AI Assistant Drafting Form State
   const [aiTopic, setAiTopic] = useState("");
@@ -531,6 +543,81 @@ export default function AdminPanel({
     }
   };
 
+  // ---------------- REGULATIONS CRUD OPERATIONS ----------------
+  const handleEditRegClick = (reg: Regulation) => {
+    setSelectedRegId(reg.id);
+    setRegTitle(reg.title);
+    setRegContent(reg.content);
+    setRegDate(reg.date);
+    setRegPdfUrl(reg.pdfUrl || "");
+    setShowRegForm(true);
+  };
+
+  const handleCreateRegClick = () => {
+    setSelectedRegId(null);
+    setRegTitle("");
+    setRegContent("");
+    setRegDate(new Date().toISOString().split("T")[0]);
+    setRegPdfUrl("");
+    setShowRegForm(true);
+  };
+
+  const handleRegSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const payload = {
+      title: regTitle,
+      content: regContent,
+      date: regDate,
+      pdfUrl: regPdfUrl,
+    };
+
+    try {
+      let url = "/api/regulations";
+      let method = "POST";
+
+      if (selectedRegId) {
+        url = `/api/regulations/${selectedRegId}`;
+        method = "PUT";
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setShowRegForm(false);
+        if (onRegulationsChange) onRegulationsChange();
+        alert(selectedRegId ? "แก้ไขระเบียบสำเร็จ" : "บันทึกเพิ่มระเบียบสำเร็จ");
+      } else {
+        alert("เกิดข้อผิดพลาดในการบันทึกระเบียบ");
+      }
+    } catch (err) {
+      alert("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRegDelete = async (id: string) => {
+    if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบระเบียบนี้?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/regulations/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        if (onRegulationsChange) onRegulationsChange();
+        alert("ลบข้อมูลระเบียบสำเร็จ");
+      }
+    } catch (err) {
+      alert("ลบไม่สำเร็จ");
+    }
+  };
+
   // ---------------- AI NEWS DRAFTING (GEMINI) ----------------
   const handleAiDraftNews = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -566,7 +653,7 @@ export default function AdminPanel({
 
   const handleApplyAiDraftToForm = () => {
     if (!aiDraftedText) return;
-    
+
     // Switch to News tab, Open the Create form and fill with AI draft
     setNewsTitle(aiTopic);
     setNewsContent(aiDraftedText);
@@ -574,7 +661,7 @@ export default function AdminPanel({
     setNewsCategory("กิจกรรมชมรม");
     setNewsAuthor("ฝ่ายประชาสัมพันธ์ชมรมผู้จัดการ กฟฉ.1");
     setNewsImageUrl("https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800");
-    
+
     setSelectedNewsId(null);
     setActiveTab("news");
     setShowNewsForm(true);
@@ -591,9 +678,9 @@ export default function AdminPanel({
         >
           {/* Logo Header Graphic */}
           <div className="relative mx-auto w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-md border border-purple-100 p-1 mb-2">
-            <img 
-              src={clubLogo} 
-              alt="โลโก้ชมรมผู้จัดการ กฟฉ.1" 
+            <img
+              src={clubLogo}
+              alt="โลโก้ชมรมผู้จัดการ กฟฉ.1"
               className="w-full h-full object-contain rounded-full"
               referrerPolicy="no-referrer"
             />
@@ -693,41 +780,45 @@ export default function AdminPanel({
         {/* Navigation / Sidebar */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-2 h-fit">
           <p className="text-[10px] font-bold text-slate-400 uppercase px-3 pb-1 tracking-wider">แผงจัดการข้อมูล</p>
-          
+
           <button
             onClick={() => { setActiveTab("news"); setShowNewsForm(false); }}
-            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${
-              activeTab === "news" ? "bg-pea-purple text-white shadow-md" : "text-slate-600 hover:bg-slate-50"
-            }`}
+            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${activeTab === "news" ? "bg-pea-purple text-white shadow-md" : "text-slate-600 hover:bg-slate-50"
+              }`}
           >
             <Newspaper className="w-4 h-4" /> จัดการข่าวสารและกิจกรรม
           </button>
 
           <button
             onClick={() => { setActiveTab("members"); setShowMemberForm(false); }}
-            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${
-              activeTab === "members" ? "bg-pea-purple text-white shadow-md" : "text-slate-600 hover:bg-slate-50"
-            }`}
+            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${activeTab === "members" ? "bg-pea-purple text-white shadow-md" : "text-slate-600 hover:bg-slate-50"
+              }`}
           >
             <Users className="w-4 h-4" /> จัดการรายชื่อสมาชิก
           </button>
 
           <button
             onClick={() => { setActiveTab("calendar"); setShowEventForm(false); }}
-            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${
-              activeTab === "calendar" ? "bg-pea-purple text-white shadow-md" : "text-slate-600 hover:bg-slate-50"
-            }`}
+            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${activeTab === "calendar" ? "bg-pea-purple text-white shadow-md" : "text-slate-600 hover:bg-slate-50"
+              }`}
           >
             <Calendar className="w-4 h-4" /> จัดการปฏิทินกิจกรรม
           </button>
 
+          <button
+            onClick={() => { setActiveTab("regulations"); setShowRegForm(false); }}
+            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${activeTab === "regulations" ? "bg-pea-purple text-white shadow-md" : "text-slate-600 hover:bg-slate-50"
+              }`}
+          >
+            <FileText className="w-4 h-4" /> จัดการระเบียบที่เกี่ยวข้อง
+          </button>
+
           <p className="text-[10px] font-bold text-slate-400 uppercase px-3 pt-3 pb-1 tracking-wider">ระบบช่วยประชาสัมพันธ์</p>
-          
+
           <button
             onClick={() => { setActiveTab("ai_assistant"); }}
-            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${
-              activeTab === "ai_assistant" ? "bg-amber-500 text-white shadow-md" : "text-slate-600 hover:bg-amber-50"
-            }`}
+            className={`w-full px-4 py-2.5 rounded-xl text-xs font-semibold text-left transition-all flex items-center gap-2.5 ${activeTab === "ai_assistant" ? "bg-amber-500 text-white shadow-md" : "text-slate-600 hover:bg-amber-50"
+              }`}
           >
             <Sparkles className="w-4 h-4 text-pea-amber" /> AI ผู้ช่วยร่างข่าวประชาสัมพันธ์
           </button>
@@ -855,29 +946,28 @@ export default function AdminPanel({
                         <Image className="w-4 h-4 text-pea-purple" />
                         <span>รูปภาพข่าวประชาสัมพันธ์ (สามารถเพิ่มได้หลายภาพสำหรับการสไลด์โชว์)</span>
                       </label>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1.5">
                         {/* Drag & Drop Zone */}
-                        <div 
+                        <div
                           onDragEnter={handleDrag}
                           onDragOver={handleDrag}
                           onDragLeave={handleDrag}
                           onDrop={handleDrop}
-                          className={`md:col-span-2 border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[140px] ${
-                            dragActive 
-                              ? "border-pea-purple bg-purple-50" 
-                              : "border-slate-200 hover:border-purple-300 hover:bg-slate-50"
-                          }`}
+                          className={`md:col-span-2 border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[140px] ${dragActive
+                            ? "border-pea-purple bg-purple-50"
+                            : "border-slate-200 hover:border-purple-300 hover:bg-slate-50"
+                            }`}
                           onClick={() => document.getElementById("news-image-file")?.click()}
                         >
-                          <input 
-                            type="file" 
-                            id="news-image-file" 
+                          <input
+                            type="file"
+                            id="news-image-file"
                             accept="image/*"
                             onChange={handleFileChange}
-                            className="hidden" 
+                            className="hidden"
                           />
-                          
+
                           {uploadingImage ? (
                             <div className="space-y-2 text-slate-500">
                               <RefreshCw className="w-8 h-8 text-pea-purple animate-spin mx-auto" />
@@ -951,9 +1041,9 @@ export default function AdminPanel({
                           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
                             {newsImages.map((imgUrl, idx) => (
                               <div key={idx} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white group">
-                                <img 
-                                  src={imgUrl} 
-                                  alt={`Preview ${idx + 1}`} 
+                                <img
+                                  src={imgUrl}
+                                  alt={`Preview ${idx + 1}`}
                                   className="w-full h-full object-cover"
                                   referrerPolicy="no-referrer"
                                 />
@@ -1125,8 +1215,8 @@ export default function AdminPanel({
                         <option value="รจก.กฟจ.(11)" />
                         <option value="รจก.กฟจ.(10)" />
                         <option value="ผจก.กฟส.(11)" />
-                        <option value="รจก(ท)กฟส.(10)" />
-                        <option value="รจก(ล)กฟส.(10)" />
+                        <option value="รจก.(ท)กฟส.(10)" />
+                        <option value="รจก.(ล)กฟส.(10)" />
                         <option value="ผจก.กฟส.(10)" />
                         <option value="ชจก.(ท)กฟส.(9)" />
                         <option value="ชจก.(ล)กฟส.(9)" />
@@ -1219,26 +1309,25 @@ export default function AdminPanel({
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1.5">
                       {/* Drag & Drop Zone */}
-                      <div 
+                      <div
                         onDragEnter={handleMemDrag}
                         onDragOver={handleMemDrag}
                         onDragLeave={handleMemDrag}
                         onDrop={handleMemDrop}
-                        className={`md:col-span-2 border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[120px] ${
-                          memDragActive 
-                            ? "border-pea-purple bg-purple-50" 
-                            : "border-slate-200 hover:border-purple-300 hover:bg-slate-50"
-                        }`}
+                        className={`md:col-span-2 border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[120px] ${memDragActive
+                          ? "border-pea-purple bg-purple-50"
+                          : "border-slate-200 hover:border-purple-300 hover:bg-slate-50"
+                          }`}
                         onClick={() => document.getElementById("member-image-file")?.click()}
                       >
-                        <input 
-                          type="file" 
-                          id="member-image-file" 
+                        <input
+                          type="file"
+                          id="member-image-file"
                           accept="image/*"
                           onChange={handleMemFileChange}
-                          className="hidden" 
+                          className="hidden"
                         />
-                        
+
                         {uploadingMemImage ? (
                           <div className="space-y-2 text-slate-500">
                             <RefreshCw className="w-6 h-6 text-pea-purple animate-spin mx-auto" />
@@ -1267,9 +1356,9 @@ export default function AdminPanel({
                           <div className="flex-shrink-0">
                             {memImageUrl ? (
                               <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-pea-purple/30 shadow-sm bg-white">
-                                <img 
-                                  src={memImageUrl} 
-                                  alt="Member Profile" 
+                                <img
+                                  src={memImageUrl}
+                                  alt="Member Profile"
                                   className="w-full h-full object-cover"
                                   referrerPolicy="no-referrer"
                                 />
@@ -1490,7 +1579,133 @@ export default function AdminPanel({
             </div>
           )}
 
-          {/* TAB 4: AI WRITER HELPER */}
+          {/* TAB 4: REGULATIONS MANAGEMENT */}
+          {activeTab === "regulations" && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+              {!showRegForm ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-800">จัดการระเบียบที่เกี่ยวข้อง</h3>
+                      <p className="text-slate-500 text-xs">กำหนดระเบียบและข้อบังคับที่เกี่ยวข้องกับการดำเนินงานของชมรม</p>
+                    </div>
+                    <button
+                      onClick={handleCreateRegClick}
+                      className="px-4 py-2 bg-pea-purple hover:bg-pea-darkpurple text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow"
+                    >
+                      <Plus className="w-4 h-4" /> เพิ่มระเบียบใหม่
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {regulations.map((reg) => (
+                      <div key={reg.id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                        <div className="min-w-0 flex-grow">
+                          <h4 className="font-bold text-slate-800 text-sm mt-1 truncate">{reg.title}</h4>
+                          <p className="text-xs text-slate-400 font-light mt-0.5">{reg.date} • {reg.pdfUrl ? "มีเอกสารแนบ" : "ไม่มีเอกสารแนบ"}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={() => handleEditRegClick(reg)}
+                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleRegDelete(reg.id)}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                /* REGULATION FORM */
+                <form onSubmit={handleRegSubmit} className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-base font-bold text-slate-800">
+                      {selectedRegId ? "แก้ไขระเบียบ" : "เพิ่มระเบียบใหม่"}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowRegForm(false)}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs text-slate-500 font-medium">ชื่อระเบียบ/ข้อบังคับ</label>
+                    <input
+                      type="text"
+                      value={regTitle}
+                      onChange={(e) => setRegTitle(e.target.value)}
+                      placeholder="เช่น ระเบียบการเบิกจ่ายงบประมาณ"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs text-slate-500 font-medium">วันที่ออกระเบียบ / วันที่มีผลบังคับใช้</label>
+                    <input
+                      type="date"
+                      value={regDate}
+                      onChange={(e) => setRegDate(e.target.value)}
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs text-slate-500 font-medium">รายละเอียด</label>
+                    <textarea
+                      value={regContent}
+                      onChange={(e) => setRegContent(e.target.value)}
+                      rows={5}
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs font-light"
+                      placeholder="อธิบายรายละเอียดของระเบียบ..."
+                      required
+                    ></textarea>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs text-slate-500 font-medium">ลิงก์เอกสารอ้างอิง (PDF URL) - (ตัวเลือก)</label>
+                    <input
+                      type="text"
+                      value={regPdfUrl}
+                      onChange={(e) => setRegPdfUrl(e.target.value)}
+                      placeholder="https://example.com/document.pdf"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowRegForm(false)}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-5 py-2 bg-pea-purple hover:bg-pea-darkpurple text-white text-xs font-semibold rounded-xl shadow-md"
+                    >
+                      {isSubmitting ? "กำลังบันทึก..." : "บันทึกระเบียบ"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* TAB 5: AI WRITER HELPER */}
           {activeTab === "ai_assistant" && (
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3">

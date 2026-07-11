@@ -15,7 +15,7 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
 
   // Extract unique offices and roles for filtering
   const offices = ["ทั้งหมด", ...Array.from(new Set(members.map((m) => m.peaOffice))).filter(Boolean)];
-  
+
   // Custom role group mapping
   const roleGroups = ["ทั้งหมด", "คณะกรรมการ", "สมาชิกทั่วไป"];
 
@@ -63,8 +63,8 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
     "รจก.กฟจ.(11)",
     "รจก.กฟจ.(10)",
     "ผจก.กฟส.(11)",
-    "รจก(ท)กฟส.(10)",
-    "รจก(ล)กฟส.(10)",
+    "รจก.(ท)กฟส.(10)",
+    "รจก.(ล)กฟส.(10)",
     "ผจก.กฟส.(10)",
     "ชจก.(ท)กฟส.(9)",
     "ชจก.(ล)กฟส.(9)",
@@ -82,15 +82,15 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
   const sortedMembers = [...filteredMembers].sort((a, b) => {
     const orderRoleA = roleOrder[a.role] || 99;
     const orderRoleB = roleOrder[b.role] || 99;
-    
+
     if (orderRoleA !== orderRoleB) {
       return orderRoleA - orderRoleB;
     }
-    
+
     // ถ้าบทบาทในชมรมเท่ากัน ให้เรียงตามตำแหน่งย่อย
     const orderPosA = getPositionPriority(a.position);
     const orderPosB = getPositionPriority(b.position);
-    
+
     return orderPosA - orderPosB;
   });
 
@@ -176,11 +176,10 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
               <button
                 key={group}
                 onClick={() => setSelectedRoleGroup(group)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  selectedRoleGroup === group
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedRoleGroup === group
                     ? "bg-pea-purple text-white shadow-sm"
                     : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-                }`}
+                  }`}
               >
                 {group}
               </button>
@@ -195,11 +194,10 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
             <button
               key={office}
               onClick={() => setSelectedOffice(office)}
-              className={`px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
-                selectedOffice === office
+              className={`px-3 py-1 rounded-full text-[11px] font-medium transition-all ${selectedOffice === office
                   ? "bg-pea-amber text-slate-800 shadow-sm"
                   : "bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200"
-              }`}
+                }`}
             >
               {office}
             </button>
@@ -223,11 +221,10 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.25, delay: index * 0.03 }}
-                className={`relative bg-white rounded-2xl p-6 border transition-all duration-300 shadow-sm flex flex-col justify-between ${
-                  isCommittee 
-                    ? "border-purple-200 ring-2 ring-pea-purple/5" 
+                className={`relative bg-white rounded-2xl p-6 border transition-all duration-300 shadow-sm flex flex-col justify-between ${isCommittee
+                    ? "border-purple-200 ring-2 ring-pea-purple/5"
                     : "border-slate-100"
-                }`}
+                  }`}
               >
                 {/* Executive Badge */}
                 {isCommittee && (
@@ -241,13 +238,13 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
                       {member.imageUrl ? (
-                        <div 
+                        <div
                           className="w-14 h-14 rounded-full overflow-hidden border border-purple-100 shadow-sm bg-slate-50 cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => setSelectedImage(member.imageUrl || null)}
                         >
-                          <img 
-                            src={member.imageUrl} 
-                            alt={member.name} 
+                          <img
+                            src={member.imageUrl}
+                            alt={member.name}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                           />
@@ -258,7 +255,7 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="space-y-0.5 min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`w-2 h-2 rounded-full ${member.status === "Active" ? "bg-emerald-500" : "bg-slate-300"}`}></span>
@@ -301,7 +298,7 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
       {/* Image Modal */}
       <AnimatePresence>
         {selectedImage && (
-          <div 
+          <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={() => setSelectedImage(null)}
           >

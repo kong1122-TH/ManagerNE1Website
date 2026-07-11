@@ -48,3 +48,11 @@ export interface AppConfig {
   googleSheetId: string;
   googleDriveFolderId: string;
 }
+
+export interface Regulation {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  pdfUrl?: string;
+}
