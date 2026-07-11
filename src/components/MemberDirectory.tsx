@@ -28,16 +28,7 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
 
     const matchesOffice = selectedOffice === "ทั้งหมด" || member.peaOffice === selectedOffice;
 
-    const isCommittee = [
-      "ประธานชมรม",
-      "รองประธานชมรม",
-      "เลขานุการชมรม",
-      "เหรัญญิก",
-      "กรรมการ",
-      "เหรัญญิกชมรม",
-      "เลขานุการชมรมฯ",
-      "ประธานชมรมฯ"
-    ].some(role => member.role.includes(role));
+    const isCommittee = member.role !== "สมาชิกชมรม";
 
     let matchesRoleGroup = true;
     if (selectedRoleGroup === "คณะกรรมการ") {
@@ -49,13 +40,34 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
     return matchesSearch && matchesOffice && matchesRoleGroup;
   });
 
+  // เรียงลำดับตามความสำคัญของตำแหน่ง
+  const roleOrder: Record<string, number> = {
+    "ประธานที่ปรึกษากิตติมศักดิ์": 1,
+    "ที่ปรึกษากิตติมศักดิ์": 2,
+    "ประธานที่ปรึกษา": 3,
+    "รองประธานที่ปรึกษา": 4,
+    "ที่ปรึกษา": 5,
+    "ประธานชมรม": 6,
+    "รองประธานชมรม": 7,
+    "ประธานคณะกรรมการ": 8,
+    "กรรมการ": 9,
+    "กรรมการและเลขานุการ": 10,
+    "เลขานุการ": 11,
+    "ผู้ช่วยเลขานุการ": 12,
+    "สมาชิกชมรม": 13,
+  };
+
+  const sortedMembers = [...filteredMembers].sort((a, b) => {
+    const orderA = roleOrder[a.role] || 99;
+    const orderB = roleOrder[b.role] || 99;
+    return orderA - orderB;
+  });
+
   // Calculate statistics
   const totalCount = members.length;
   const activeCount = members.filter((m) => m.status === "Active").length;
   const uniqueBranchesCount = new Set(members.map((m) => m.peaOffice)).size;
-  const committeeCount = members.filter((m) =>
-    ["ประธาน", "รองประธาน", "เลขา", "เหรัญญิก", "กรรมการ"].some(role => m.role.includes(role))
-  ).length;
+  const committeeCount = members.filter((m) => m.role !== "สมาชิกชมรม").length;
 
   return (
     <div className="space-y-8">
@@ -164,23 +176,14 @@ export default function MemberDirectory({ members }: MemberDirectoryProps) {
       </div>
 
       {/* Members Cards Grid */}
-      {filteredMembers.length === 0 ? (
+      {sortedMembers.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-slate-400 text-sm font-light">ไม่พบรายชื่อสมาชิกที่ตรงกับเงื่อนไขการค้นหา</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMembers.map((member, index) => {
-            const isCommittee = [
-              "ประธานชมรม",
-              "รองประธานชมรม",
-              "เลขานุการชมรม",
-              "เหรัญญิก",
-              "กรรมการ",
-              "เหรัญญิกชมรม",
-              "เลขานุการชมรมฯ",
-              "ประธานชมรมฯ"
-            ].some(role => member.role.includes(role));
+          {sortedMembers.map((member, index) => {
+            const isCommittee = member.role !== "สมาชิกชมรม";
 
             return (
               <motion.div
