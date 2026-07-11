@@ -35,6 +35,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [copiedNewsId, setCopiedNewsId] = useState<string | null>(null);
   const [showAllNewsList, setShowAllNewsList] = useState<boolean>(false);
+  const [memberStartIndex, setMemberStartIndex] = useState<number>(0);
 
   // Parse newsId from URL and open it if present
   React.useEffect(() => {
@@ -71,6 +72,17 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
     }
     return () => clearInterval(interval);
   }, [selectedNews]);
+
+  // Auto-rotate quick members list
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (searchTerm === "" && members.length > 3) {
+      interval = setInterval(() => {
+        setMemberStartIndex((prev) => (prev + 1) % members.length);
+      }, 3500);
+    }
+    return () => clearInterval(interval);
+  }, [searchTerm, members.length]);
 
   const handleShare = (news: News) => {
     try {
@@ -130,35 +142,66 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
   // Recent Updates (Next 3 news items)
   const recentUpdates = newsList.slice(1, 4);
 
-  // Quick Member Search list
-  const filteredMembers = members
-    .filter((member) => {
-      const target = searchTerm.toLowerCase();
-      return (
-        member.name.toLowerCase().includes(target) ||
-        member.position.toLowerCase().includes(target) ||
-        member.peaOffice.toLowerCase().includes(target)
-      );
-    })
-    .slice(0, 3);
+  // Quick Member Search list (rotating when empty, filtering when typing)
+  let filteredMembers: Member[] = [];
+  if (searchTerm) {
+    filteredMembers = members
+      .filter((member) => {
+        const target = searchTerm.toLowerCase();
+        return (
+          member.name.toLowerCase().includes(target) ||
+          member.position.toLowerCase().includes(target) ||
+          member.peaOffice.toLowerCase().includes(target)
+        );
+      })
+      .slice(0, 3);
+  } else if (members.length > 0) {
+    for (let i = 0; i < Math.min(3, members.length); i++) {
+      filteredMembers.push(members[(memberStartIndex + i) % members.length]);
+    }
+  }
 
-  // Mock Calendar Highlights (July 2026 based on prompt's mock current context)
-  const calendarDays = [
-    { day: 28, isCurrentMonth: false, hasEvent: false },
-    { day: 29, isCurrentMonth: false, hasEvent: false },
-    { day: 30, isCurrentMonth: false, hasEvent: false },
-    { day: 1, isCurrentMonth: true, hasEvent: false },
-    { day: 2, isCurrentMonth: true, hasEvent: false },
-    { day: 3, isCurrentMonth: true, hasEvent: false },
-    { day: 4, isCurrentMonth: true, hasEvent: false },
-    { day: 5, isCurrentMonth: true, hasEvent: false },
-    { day: 6, isCurrentMonth: true, hasEvent: true, isPurple: true }, // Highlighted Day
-    { day: 7, isCurrentMonth: true, hasEvent: false },
-    { day: 8, isCurrentMonth: true, hasEvent: false },
-    { day: 9, isCurrentMonth: true, hasEvent: false },
-    { day: 10, isCurrentMonth: true, hasEvent: true, isOrange: true }, // Highlighted Day
-    { day: 11, isCurrentMonth: true, hasEvent: false },
-  ];
+  // Dynamically generate a 14-day calendar view starting from the Sunday of the current week
+  const todayDateObj = new Date();
+  const currentDayOfWeek = todayDateObj.getDay();
+  const startDate = new Date(todayDateObj);
+  startDate.setDate(todayDateObj.getDate() - currentDayOfWeek);
+
+  const calendarDays = Array.from({ length: 14 }).map((_, i) => {
+    const current = new Date(startDate);
+    current.setDate(startDate.getDate() + i);
+    
+    const yyyy = current.getFullYear();
+    const mm = String(current.getMonth() + 1).padStart(2, "0");
+    const dd = String(current.getDate()).padStart(2, "0");
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    
+    const dayEvents = events.filter(e => e.date === dateStr);
+    const hasEvent = dayEvents.length > 0;
+    
+    let isPurple = false;
+    let isOrange = false;
+    
+    if (hasEvent) {
+      const cat = dayEvents[0].category;
+      if (cat === "CSR" || cat === "สัมมนา") isOrange = true;
+      else isPurple = true;
+    }
+    
+    const isToday = current.getDate() === todayDateObj.getDate() && 
+                    current.getMonth() === todayDateObj.getMonth() && 
+                    current.getFullYear() === todayDateObj.getFullYear();
+                    
+    return {
+      day: current.getDate(),
+      isCurrentMonth: current.getMonth() === todayDateObj.getMonth(),
+      hasEvent,
+      isPurple,
+      isOrange,
+      isToday,
+      dateStr
+    };
+  });
 
   // Filter and sort events to find upcoming/nearest ones chronologically starting from today
   const getUpcomingEvents = () => {
