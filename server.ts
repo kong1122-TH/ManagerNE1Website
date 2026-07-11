@@ -310,8 +310,17 @@ let googleSheetsClient: any = null;
 let googleDriveClient: any = null;
 
 function getGoogleAuth() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY;
+  let email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+  if (email && email.startsWith('"') && email.endsWith('"')) {
+    email = email.slice(1, -1);
+  }
+
+  let privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY?.trim();
+  if (privateKeyRaw && privateKeyRaw.startsWith('"') && privateKeyRaw.endsWith('"')) {
+    privateKeyRaw = privateKeyRaw.slice(1, -1);
+  } else if (privateKeyRaw && privateKeyRaw.startsWith("'") && privateKeyRaw.endsWith("'")) {
+    privateKeyRaw = privateKeyRaw.slice(1, -1);
+  }
 
   if (!email || !privateKeyRaw) {
     return null;
