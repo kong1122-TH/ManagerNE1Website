@@ -130,7 +130,7 @@ export default function App() {
   // Real-time Firestore sync for forum messages
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
-    
+
     const token = sessionStorage.getItem("pea_member_token");
     const adminToken = sessionStorage.getItem("pea_admin_token");
     const isUnlocked = token || adminToken;
@@ -149,7 +149,7 @@ export default function App() {
             timestamp: data.timestamp,
           } as Message);
         });
-        
+
         if (firestoreMsgs.length > 0) {
           firestoreMsgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
           setMessages(firestoreMsgs);
@@ -242,13 +242,13 @@ export default function App() {
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/80 shadow-sm backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-18">
-            
+
             {/* Left: PEA Brand Logo style */}
             <div onClick={() => handleTabChange("home")} className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity">
               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md border border-purple-100 p-0.5 overflow-hidden transform hover:scale-105 transition-transform duration-300">
-                <img 
-                  src={clubLogo} 
-                  alt="โลโก้ชมรมผู้จัดการ กฟฉ.1" 
+                <img
+                  src={clubLogo}
+                  alt="โลโก้ชมรมผู้จัดการ กฟฉ.1"
                   className="w-full h-full object-contain rounded-full"
                   referrerPolicy="no-referrer"
                 />
@@ -272,11 +272,10 @@ export default function App() {
                   <button
                     key={item.id}
                     onClick={() => handleTabChange(item.id)}
-                    className={`relative px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 ${
-                      isActive
+                    className={`relative px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 ${isActive
                         ? "bg-purple-50 text-pea-purple"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
-                    }`}
+                      }`}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? "text-pea-purple" : "text-slate-400"}`} />
                     <span>{item.label}</span>
@@ -326,11 +325,10 @@ export default function App() {
                   <button
                     key={item.id}
                     onClick={() => handleTabChange(item.id)}
-                    className={`w-full px-4 py-3 rounded-xl text-xs font-bold text-left flex items-center gap-3 transition-colors ${
-                      isActive
+                    className={`w-full px-4 py-3 rounded-xl text-xs font-bold text-left flex items-center gap-3 transition-colors ${isActive
                         ? "bg-purple-50 text-pea-purple"
                         : "text-slate-600 hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{item.label}</span>
@@ -348,9 +346,9 @@ export default function App() {
         {isLoading && newsList.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500 space-y-4">
             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg border border-purple-100 p-1 relative">
-              <img 
-                src={clubLogo} 
-                alt="Logo" 
+              <img
+                src={clubLogo}
+                alt="Logo"
                 className="w-full h-full object-contain rounded-full"
                 referrerPolicy="no-referrer"
               />

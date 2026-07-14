@@ -1420,6 +1420,61 @@ app.delete("/api/regulations/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// Share dynamic Open Graph endpoint
+app.get("/api/share/:newsId", async (req, res) => {
+  const { newsId } = req.params;
+  try {
+    const headers = ["id", "title", "content", "date", "category", "author", "imageUrl", "images", "views"];
+    const newsList = await fetchSheetData("News", headers);
+    const newsItem = newsList.find((n: any) => String(n.id) === String(newsId));
+
+    if (!newsItem) {
+      return res.redirect("/?newsId=" + encodeURIComponent(newsId));
+    }
+
+    let imageUrl = newsItem.imageUrl || "https://manager-ne-1-website.vercel.app/logo.jpg";
+    if (newsItem.images) {
+      let imgs: string[] = [];
+      if (typeof newsItem.images === "string" && newsItem.images.trim().startsWith("[")) {
+        try { imgs = JSON.parse(newsItem.images); } catch (e) {}
+      } else if (Array.isArray(newsItem.images)) {
+        imgs = newsItem.images;
+      }
+      if (imgs.length > 0 && imgs[0]) {
+        imageUrl = imgs[0];
+      }
+    }
+
+    const title = (newsItem.title || "ข่าวประชาสัมพันธ์").replace(/"/g, '&quot;');
+    const description = (newsItem.content || "เว็บไซต์ข่าวประชาสัมพันธ์ชมรมผู้จัดการ กฟฉ.1")
+      .substring(0, 150)
+      .replace(/"/g, '&quot;');
+    const url = `https://manager-ne-1-website.vercel.app/?newsId=${encodeURIComponent(newsId)}`;
+
+    const html = `<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${url}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${imageUrl}" />
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <script>
+    window.location.href = "/?newsId=${encodeURIComponent(newsId)}";
+  </script>
+</body>
+</html>`;
+    res.send(html);
+  } catch (error) {
+    res.redirect("/?newsId=" + encodeURIComponent(newsId));
+  }
+});
+
 // Vite & Static file handling
 async function startServer() {
   // Ensure Google Sheet structure is verified before starting HTTP server

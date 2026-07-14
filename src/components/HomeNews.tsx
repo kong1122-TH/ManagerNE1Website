@@ -18,7 +18,8 @@ import {
   MapPin,
   Building,
   Share2,
-  Check
+  Check,
+  Maximize2
 } from "lucide-react";
 import { News, Member, CalendarEvent } from "../types";
 
@@ -36,6 +37,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
   const [copiedNewsId, setCopiedNewsId] = useState<string | null>(null);
   const [showAllNewsList, setShowAllNewsList] = useState<boolean>(false);
   const [memberStartIndex, setMemberStartIndex] = useState<number>(0);
+  const [isFullscreenView, setIsFullscreenView] = useState<boolean>(false);
 
   // Parse newsId from URL and open it if present
   React.useEffect(() => {
@@ -86,7 +88,7 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
 
   const handleShare = (news: News) => {
     try {
-      const shareUrl = `${window.location.origin}${window.location.pathname}?newsId=${encodeURIComponent(news.id)}`;
+      const shareUrl = `${window.location.origin}/api/share/${encodeURIComponent(news.id)}`;
       navigator.clipboard.writeText(shareUrl);
       setCopiedNewsId(news.id);
       setTimeout(() => {
@@ -632,10 +634,24 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.98 }}
                           transition={{ duration: 0.35, ease: "easeInOut" }}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => setIsFullscreenView(true)}
                           referrerPolicy="no-referrer"
                         />
                       </AnimatePresence>
+
+                      {/* Expand Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsFullscreenView(true);
+                        }}
+                        className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 shadow-md z-20"
+                        title="ดูภาพเต็มหน้าจอ"
+                      >
+                        <Maximize2 className="w-5 h-5" />
+                      </button>
 
                       {/* Left/Right Navigation Arrows if there is more than 1 image */}
                       {slideshowImages.length > 1 && (
@@ -686,19 +702,9 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                         </div>
                       )}
 
-                      {/* Title and Category Overlay */}
-                      <div className="absolute bottom-5 left-5 right-5 text-white space-y-2 z-20 pointer-events-none">
-                        <span className="inline-block px-2.5 py-1 bg-orange-500 text-white text-[10px] font-bold rounded-full">
-                          {selectedNews.category}
-                        </span>
-                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight drop-shadow-md">
-                          {selectedNews.title}
-                        </h2>
-                      </div>
-
                       {/* Indicator text (e.g. 1 / 3) */}
                       {slideshowImages.length > 1 && (
-                        <div className="absolute top-4 right-14 z-20 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                        <div className="absolute top-4 right-14 z-20 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                           ภาพที่ {activeImageIdx + 1} / {slideshowImages.length}
                         </div>
                       )}
@@ -733,6 +739,15 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
 
               {/* Modal Content */}
               <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
+                <div className="space-y-3">
+                  <span className="inline-block px-2.5 py-1 bg-orange-500 text-white text-[10px] font-bold rounded-full">
+                    {selectedNews.category}
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800">
+                    {selectedNews.title}
+                  </h2>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-6 text-xs text-slate-500 border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-2">
                     <CalendarIcon className="w-4 h-4 text-pea-purple" />
@@ -855,6 +870,72 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                 </div>
               </div>
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Fullscreen Image Viewer Modal */}
+      <AnimatePresence>
+        {isFullscreenView && selectedNews && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md">
+            <button
+              onClick={() => setIsFullscreenView(false)}
+              className="absolute top-6 right-6 z-50 p-2 bg-white/10 hover:bg-white/25 text-white rounded-full transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            {(() => {
+              const slideshowImages = selectedNews.images && selectedNews.images.length > 0 
+                ? selectedNews.images 
+                : (selectedNews.imageUrl ? [selectedNews.imageUrl] : ["https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1200"]);
+              
+              return (
+                <div className="relative w-full h-full flex items-center justify-center p-4">
+                  <AnimatePresence mode="wait">
+                    <motion.img
+                      key={`fs-${activeImageIdx}`}
+                      src={slideshowImages[activeImageIdx]}
+                      alt={`ภาพที่ ${activeImageIdx + 1}`}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="max-w-full max-h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </AnimatePresence>
+
+                  {/* Navigation */}
+                  {slideshowImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveImageIdx((prev) => (prev === 0 ? slideshowImages.length - 1 : prev - 1));
+                        }}
+                        className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/25 text-white rounded-full transition-all shadow-lg z-20"
+                      >
+                        <ChevronLeft className="w-8 h-8" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveImageIdx((prev) => (prev === slideshowImages.length - 1 ? 0 : prev + 1));
+                        }}
+                        className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/25 text-white rounded-full transition-all shadow-lg z-20"
+                      >
+                        <ChevronRight className="w-8 h-8" />
+                      </button>
+                      
+                      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/70 text-sm font-medium tracking-widest bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm">
+                        {activeImageIdx + 1} / {slideshowImages.length}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </AnimatePresence>
