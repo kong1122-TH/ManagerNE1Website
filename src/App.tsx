@@ -273,8 +273,8 @@ export default function App() {
                     key={item.id}
                     onClick={() => handleTabChange(item.id)}
                     className={`relative px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 ${isActive
-                        ? "bg-purple-50 text-pea-purple"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                      ? "bg-purple-50 text-pea-purple"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                       }`}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? "text-pea-purple" : "text-slate-400"}`} />
@@ -326,8 +326,8 @@ export default function App() {
                     key={item.id}
                     onClick={() => handleTabChange(item.id)}
                     className={`w-full px-4 py-3 rounded-xl text-xs font-bold text-left flex items-center gap-3 transition-colors ${isActive
-                        ? "bg-purple-50 text-pea-purple"
-                        : "text-slate-600 hover:bg-slate-50"
+                      ? "bg-purple-50 text-pea-purple"
+                      : "text-slate-600 hover:bg-slate-50"
                       }`}
                   >
                     <Icon className="w-5 h-5" />

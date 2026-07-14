@@ -640,19 +640,6 @@ export default function HomeNews({ newsList, members, events, onTabChange }: Hom
                         />
                       </AnimatePresence>
 
-                      {/* Expand Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsFullscreenView(true);
-                        }}
-                        className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 shadow-md z-20"
-                        title="ดูภาพเต็มหน้าจอ"
-                      >
-                        <Maximize2 className="w-5 h-5" />
-                      </button>
-
                       {/* Left/Right Navigation Arrows if there is more than 1 image */}
                       {slideshowImages.length > 1 && (
                         <>
