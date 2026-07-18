@@ -13,7 +13,8 @@ import {
   X,
   RefreshCw,
   Database,
-  Lock
+  Lock,
+  CreditCard
 } from "lucide-react";
 
 // Types
@@ -228,6 +229,7 @@ export default function App() {
     { id: "calendar", label: "ปฏิทินกิจกรรม", icon: CalendarIcon },
     { id: "regulations", label: "ระเบียบที่เกี่ยวข้อง", icon: BookOpen },
     { id: "forum", label: "ติดต่อสื่อสารภายใน", icon: MessageSquare, isSecure: true },
+    { id: "payment", label: "ระบบชำระเงิน", icon: CreditCard, externalLink: "https://manager-ne-1-payment.vercel.app/" },
     { id: "admin", label: "ระบบแอดมิน", icon: Settings },
   ];
 
@@ -271,7 +273,13 @@ export default function App() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => handleTabChange(item.id)}
+                    onClick={() => {
+                      if (item.externalLink) {
+                        window.open(item.externalLink, "_blank");
+                      } else {
+                        handleTabChange(item.id);
+                      }
+                    }}
                     className={`relative px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 ${isActive
                       ? "bg-purple-50 text-pea-purple"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
@@ -324,7 +332,14 @@ export default function App() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => handleTabChange(item.id)}
+                    onClick={() => {
+                      if (item.externalLink) {
+                        window.open(item.externalLink, "_blank");
+                        setMobileMenuOpen(false);
+                      } else {
+                        handleTabChange(item.id);
+                      }
+                    }}
                     className={`w-full px-4 py-3 rounded-xl text-xs font-bold text-left flex items-center gap-3 transition-colors ${isActive
                       ? "bg-purple-50 text-pea-purple"
                       : "text-slate-600 hover:bg-slate-50"
